@@ -37,6 +37,8 @@
             padding: 20px;
             flex-direction: column;
             gap: 10px;
+            margin: 10px;
+            border: 1px solid black;
         }
         .menu {
             display: flex;
@@ -89,8 +91,89 @@
             font-size: 2em;
             color: #000;
         }
-        .graph, .tables {
+        /* .graph, .tables {
             width: 100%;
+        }*/
+
+
+        .tables {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        table, th, td {
+            border: 1px solid black;
+        }
+
+        th, td {
+            padding: 8px;
+            text-align: center;
+        }
+
+        .gauge {
+            position: relative;
+            border-radius: 50%/100% 100% 0 0;
+            /*background-color: #5CB85C;*/
+            overflow: hidden;
+            width: 100%;
+        }
+        .gauge:before {
+            content: "";
+            display: block;
+            padding-top: 50%;
+            /* ratio of 2:1*/
+        }
+        .gauge .chart {
+            overflow: hidden;
+        }
+        .gauge .mask {
+            position: absolute;
+            left: 20%;
+            right: 20%;
+            bottom: 0;
+            top: 40%;
+            background-color: #fff;
+            border-radius: 50%/100% 100% 0 0;
+        }
+
+        .gauge .percentage {
+            position: absolute;
+            top: -1px;
+            left: -1px;
+            bottom: 0;
+            right: -1px;
+            background-color: #E9ECEF;
+            /*transform: rotate(150deg);*/
+            transform-origin: bottom center;
+            transition-duration: 600;
+        }
+        /*.percentage {
+            transform: rotate(150deg);
+        }*/
+        .gauge .value {
+            position: absolute;
+            bottom: 0%;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            font-weight: bold;
+            font-size: 25px;
+        }
+
+        .gauge .min {
+            position: absolute;
+            bottom: 0;
+            left: 5%;
+        }
+        .gauge .max {
+            position: absolute;
+            bottom: 0;
+            right: 5%;
         }
 @media screen and (min-width: 800px) {
             .items {
@@ -110,44 +193,14 @@
     </header>
     <div class="content">
         <div class="container1">
-            <div class="readings">
-                <div class="items">
-                    <span>Water Level</span>
-                    <h2 id="lvl">30%</h2>
-                </div>
-                <div class="items">
-                    <span>Volume</span>
-                    <h2 id="vol">200L</h2>
-                </div>
+            <div class="readings" id="readings">
                 <div class="items">
                     <span>Motor Status</span>
-                    <h2 id="status">ON</h2>
-                </div>
-                <div class="items">
-                    <span>Daily Trigger Rate</span>
-                    <h2 id="trig">3</h2>
-                </div>
-                <div class="items">
-                    <span>Line Voltage</span>
-                    <h2 id="volt">230V</h2>
-                </div>
-                <div class="items">
-                    <span>Avg Motor ON Time</span>
-                    <h2 id="ontime">2Min</h2>
+                    <h2 id="status">OFF</h2>
                 </div>
                 <div class="items">
                     <span>Control Mode</span>
-                    <h2 id="ctrl">Manual</h2>
-                </div>
-                <div class="items">
-                    <span>Overall Power Used</span>
-                    <h2 id="power">260W</h2>
-                </div>
-            </div>
-            <div class="tank">
-                <div id="water"></div>
-                <div id="percent">
-                    0%
+                    <h2 id="ctrl">AUTOMATIC</h2>
                 </div>
             </div>
         </div>
@@ -156,9 +209,37 @@
                 <span>Graph</span>
                 <span>Table</span>
             </div>
-            <div class="graph" id="plot"></div>
-            <div class="tables">
+            <div style="border: 1px solid black">
+                <div class="graph" id="plot"></div>
+            </div>
 
+            <div class="tables">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Age</th>
+                            <th>City</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Alice</td>
+                            <td>30</td>
+                            <td>New York</td>
+                        </tr>
+                        <tr>
+                            <td>Bob</td>
+                            <td>25</td>
+                            <td>Los Angeles</td>
+                        </tr>
+                        <tr>
+                            <td>Charlie</td>
+                            <td>35</td>
+                            <td>Chicago</td>
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -167,13 +248,20 @@
         $(document).ready(function() {
             const $waterElement = $('#water');
             const $percentageElement = $('#percent');
+            var r = $("#readings");
             function updateWaterLevel(percentage) {
                 const visualPercentage = Math.min(percentage, 100) * 0.95;
                 const heightPercentage = visualPercentage + '%';
                 $waterElement.css('height', heightPercentage);
                 $percentageElement.text(percentage + '%');
             }
-
+            $("#status").css({color: "red"});
+            $("#ctrl").css({color: "#5CB85C"});
+            r.append(createGuage(100, 30, "Water Level", "%"));
+            r.append(createGuage(1000, 1000, "Volume", "L"));
+            r.append(createGuage(250, 230, "Line Volume", "V"));
+            r.append(createGuage(15, 8, "Last Motor ON Time", "Min", true));
+            r.append(createGuage(5, 2, "Daily Trigger Rate", "", true));
             // Example usage
             let level = 0;
             setInterval(() => {
@@ -201,14 +289,71 @@
             }
         });
 
+        function createGuage(max, val, head, suffix, invert = false) {
+            const percentage = val / max;
+            var color;
+            var deg = `rotate(${percentage * 180}deg)`;
+            const Red = "red";
+            const Green = "#5CB85C";
+            const Yellow = "#FFEA00";
+            if(percentage*100 < 40) {
+                color = Red;
+                if(invert) color = Green;
+            } else if(percentage*100 <80 & percentage*100 >= 40) {
+                color = Yellow;
+            } else {
+                color = Green;
+                if(invert) color = Red
+            }
+            var item = $("<div>",
+                {
+                    class: "items"
+                });
+            var heading = $("<span>",
+                {
+                    text: head
+                });
+
+            var mainDiv = $("<div>",
+                {
+                    class: "gauge",
+                    css: {
+                        "background-color": color
+                    }
+                });
+            var percent = $("<div>",
+                {
+                    class: "percentage",
+                    css: {
+                        "transform": deg
+                    }
+                });
+            var mask = $("<div>",
+                {
+                    class: "mask"
+                });
+            var value = $("<span>",
+                {
+                    class: "value",
+                    text: val + suffix
+                });
+            item.append(heading,
+                mainDiv.append(percent, mask, value));
+            return item;
+        }
+
         function createPlot(data) {
             Plotly.newPlot('plot',
-                data);
+                data,
+                {},
+                {
+                    displaylogo: false
+                });
         }
         trace1 = {
             type: 'scatter',
             x: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-            y: [10, 15, 13, 17, 24, 12, 56, 30, 25, 33],
+            y: [10, 15, 13, 17, 24, 12, 26, 30, 25, 33],
             mode: 'lines',
             name: 'Green',
             line: {
@@ -219,7 +364,7 @@
         trace2 = {
             type: 'scatter',
             x: [0, 2, 4, 6, 8, 10, 12, 14, 16, 18],
-            y: [10, 15, 13, 17, 24, 12, 56, 30, 25, 33],
+            y: [10, 15, 13, 17, 24, 12, 26, 30, 25, 33],
             mode: 'lines',
             name: 'Red',
             line: {
@@ -230,7 +375,7 @@
 
         var data = [trace1, trace2];
         createPlot(data)
-        
+
     </script>
 </body>
 </html>
