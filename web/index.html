@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WLMS v2.0</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src='https://cdn.plot.ly/plotly-2.32.0.min.js'></script>
+</head>
+<body>
+    <style type="text/css" media="all">
+        * {
+            padding: 0;
+            margin: 0;
+            box-sizing: border-box;
+        }
+        header {
+            width: 100%;
+            background-color: Black;
+            color: white;
+            padding: 15px;
+        }
+        .content {
+            display: flex;
+            width: 100%;
+            flex-direction: column;
+        }
+        .container1 {
+            display: flex;
+            padding: 20px;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        .container2 {
+            display: flex;
+            padding: 20px;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .menu {
+            display: flex;
+            gap: 5px;
+            padding: 5px;
+        }
+        .menu span {
+            padding: 10px;
+            border: 1px solid black;
+        }
+        .readings {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .items {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid;
+            padding: 10px;
+            width: 48%;
+            gap: 5px;
+        }
+        .tank {
+            position: relative;
+            width: 200px;
+            height: 300px;
+            border: 2px solid #000;
+            border-radius: 10px;
+            overflow: hidden;
+            background-color: #fff;
+        }
+
+        #water {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 0;
+            background-color: lightblue;
+            transition: height 1s ease-in-out;
+        }
+
+        #percent {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2em;
+            color: #000;
+        }
+        .graph, .tables {
+            width: 100%;
+        }
+@media screen and (min-width: 800px) {
+            .items {
+                width: 30%;
+            }
+            .container1 {
+                flex-direction: row;
+                align-items: flex-start;
+            }
+            .readings {
+                width: 75%;
+            }
+        }
+    </style>
+    <header>
+        <h1>WLMS v2.0</h1>
+    </header>
+    <div class="content">
+        <div class="container1">
+            <div class="readings">
+                <div class="items">
+                    <span>Water Level</span>
+                    <h2 id="lvl">30%</h2>
+                </div>
+                <div class="items">
+                    <span>Volume</span>
+                    <h2 id="vol">200L</h2>
+                </div>
+                <div class="items">
+                    <span>Motor Status</span>
+                    <h2 id="status">ON</h2>
+                </div>
+                <div class="items">
+                    <span>Daily Trigger Rate</span>
+                    <h2 id="trig">3</h2>
+                </div>
+                <div class="items">
+                    <span>Line Voltage</span>
+                    <h2 id="volt">230V</h2>
+                </div>
+                <div class="items">
+                    <span>Avg Motor ON Time</span>
+                    <h2 id="ontime">2Min</h2>
+                </div>
+                <div class="items">
+                    <span>Control Mode</span>
+                    <h2 id="ctrl">Manual</h2>
+                </div>
+                <div class="items">
+                    <span>Overall Power Used</span>
+                    <h2 id="power">260W</h2>
+                </div>
+            </div>
+            <div class="tank">
+                <div id="water"></div>
+                <div id="percent">
+                    0%
+                </div>
+            </div>
+        </div>
+        <div class="container2">
+            <div class="menu">
+                <span>Graph</span>
+                <span>Table</span>
+            </div>
+            <div class="graph" id="plot"></div>
+            <div class="tables">
+
+            </div>
+        </div>
+    </div>
+
+    <script type="text/javascript" charset="utf-8">
+        $(document).ready(function() {
+            const $waterElement = $('#water');
+            const $percentageElement = $('#percent');
+            function updateWaterLevel(percentage) {
+                const visualPercentage = Math.min(percentage, 100) * 0.95;
+                const heightPercentage = visualPercentage + '%';
+                $waterElement.css('height', heightPercentage);
+                $percentageElement.text(percentage + '%');
+            }
+
+            // Example usage
+            let level = 0;
+            setInterval(() => {
+                if (level <= 100) {
+                    updateWaterLevel(level);
+                    level += 2;
+                }
+            },
+                500); // Update every 2 seconds
+
+            function csvToJson(csv) {
+                const lines = csv.split('\n');
+                const headers = lines[0].split(',');
+
+                const result = [];
+                for (let i = 1; i < lines.length; i++) {
+                    const obj = {};
+                    const currentline = lines[i].split(',');
+                    for (let j = 0; j < headers.length; j++) {
+                        obj[headers[j].trim()] = currentline[j].trim();
+                    }
+                    result.push(obj);
+                }
+                return result;
+            }
+        });
+
+        function createPlot(data) {
+            Plotly.newPlot('plot',
+                data);
+        }
+        trace1 = {
+            type: 'scatter',
+            x: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+            y: [10, 15, 13, 17, 24, 12, 56, 30, 25, 33],
+            mode: 'lines',
+            name: 'Green',
+            line: {
+                color: 'rgb(24, 200, 20)',
+                width: 3
+            }
+        };
+        trace2 = {
+            type: 'scatter',
+            x: [0, 2, 4, 6, 8, 10, 12, 14, 16, 18],
+            y: [10, 15, 13, 17, 24, 12, 56, 30, 25, 33],
+            mode: 'lines',
+            name: 'Red',
+            line: {
+                color: 'rgb(219, 64, 82)',
+                width: 3
+            }
+        };
+
+        var data = [trace1, trace2];
+        createPlot(data)
+        
+    </script>
+</body>
+</html>
