@@ -64,41 +64,11 @@
             width: 48%;
             gap: 5px;
         }
-        .tank {
-            position: relative;
-            width: 200px;
-            height: 300px;
-            border: 2px solid #000;
-            border-radius: 10px;
-            overflow: hidden;
-            background-color: #fff;
-        }
 
-        #water {
-            position: absolute;
-            bottom: 0;
-            width: 100%;
-            height: 0;
-            background-color: lightblue;
-            transition: height 1s ease-in-out;
-        }
-
-        #percent {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 2em;
-            color: #000;
-        }
-        /* .graph, .tables {
-            width: 100%;
-        }*/
-
-
-        .tables {
+        .table {
             width: 100%;
             overflow-x: auto;
+            display: none;
         }
 
         table {
@@ -183,9 +153,6 @@
                 flex-direction: row;
                 align-items: flex-start;
             }
-            .readings {
-                width: 75%;
-            }
         }
     </style>
     <header>
@@ -209,68 +176,62 @@
                 <span>Graph</span>
                 <span>Table</span>
             </div>
-            <div style="border: 1px solid black">
+            <div id="contents" style="border: 1px solid black">
                 <div class="graph" id="plot"></div>
-            </div>
 
-            <div class="tables">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Age</th>
-                            <th>City</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>Alice</td>
-                            <td>30</td>
-                            <td>New York</td>
-                        </tr>
-                        <tr>
-                            <td>Bob</td>
-                            <td>25</td>
-                            <td>Los Angeles</td>
-                        </tr>
-                        <tr>
-                            <td>Charlie</td>
-                            <td>35</td>
-                            <td>Chicago</td>
-                        </tr>
-                    </tbody>
-                </table>
+
+                <div class="table">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Age</th>
+                                <th>City</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Alice</td>
+                                <td>30</td>
+                                <td>New York</td>
+                            </tr>
+                            <tr>
+                                <td>Bob</td>
+                                <td>25</td>
+                                <td>Los Angeles</td>
+                            </tr>
+                            <tr>
+                                <td>Charlie</td>
+                                <td>35</td>
+                                <td>Chicago</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
 
     <script type="text/javascript" charset="utf-8">
         $(document).ready(function() {
-            const $waterElement = $('#water');
-            const $percentageElement = $('#percent');
             var r = $("#readings");
-            function updateWaterLevel(percentage) {
-                const visualPercentage = Math.min(percentage, 100) * 0.95;
-                const heightPercentage = visualPercentage + '%';
-                $waterElement.css('height', heightPercentage);
-                $percentageElement.text(percentage + '%');
-            }
-            $("#status").css({color: "red"});
-            $("#ctrl").css({color: "#5CB85C"});
+            $(".menu span").click(function() {
+                var c = $(this).text().toLowerCase();
+                $("#contents").children("div").hide();
+                $(`.${c}`).fadeIn(500);
+            })
+            $("#status").css({
+                color: "red"
+            });
+            $("#ctrl").css({
+                color: "#5CB85C"
+            });
             r.append(createGuage(100, 30, "Water Level", "%"));
             r.append(createGuage(1000, 1000, "Volume", "L"));
             r.append(createGuage(250, 230, "Line Volume", "V"));
             r.append(createGuage(15, 8, "Last Motor ON Time", "Min", true));
             r.append(createGuage(5, 2, "Daily Trigger Rate", "", true));
-            // Example usage
-            let level = 0;
-            setInterval(() => {
-                if (level <= 100) {
-                    updateWaterLevel(level);
-                    level += 2;
-                }
-            },
-                500); // Update every 2 seconds
+
 
             function csvToJson(csv) {
                 const lines = csv.split('\n');
@@ -296,14 +257,14 @@
             const Red = "red";
             const Green = "#5CB85C";
             const Yellow = "#FFEA00";
-            if(percentage*100 < 40) {
+            if (percentage*100 < 40) {
                 color = Red;
-                if(invert) color = Green;
-            } else if(percentage*100 <80 & percentage*100 >= 40) {
+                if (invert) color = Green;
+            } else if (percentage*100 < 80 & percentage*100 >= 40) {
                 color = Yellow;
             } else {
                 color = Green;
-                if(invert) color = Red
+                if (invert) color = Red
             }
             var item = $("<div>",
                 {
@@ -352,8 +313,26 @@
         }
         trace1 = {
             type: 'scatter',
-            x: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-            y: [10, 15, 13, 17, 24, 12, 26, 30, 25, 33],
+            x: [1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10],
+            y: [10,
+                15,
+                13,
+                17,
+                24,
+                12,
+                26,
+                30,
+                25,
+                33],
             mode: 'lines',
             name: 'Green',
             line: {
@@ -363,8 +342,26 @@
         };
         trace2 = {
             type: 'scatter',
-            x: [0, 2, 4, 6, 8, 10, 12, 14, 16, 18],
-            y: [10, 15, 13, 17, 24, 12, 26, 30, 25, 33],
+            x: [0,
+                2,
+                4,
+                6,
+                8,
+                10,
+                12,
+                14,
+                16,
+                18],
+            y: [10,
+                15,
+                13,
+                17,
+                24,
+                12,
+                26,
+                30,
+                25,
+                33],
             mode: 'lines',
             name: 'Red',
             line: {
