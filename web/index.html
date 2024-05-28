@@ -184,26 +184,38 @@
                     <table>
                         <thead>
                             <tr>
-                                <th>Name</th>
-                                <th>Age</th>
-                                <th>City</th>
+                                <th>Sl No</th>
+                                <th>Date</th>
+                                <th>Motor ON Time</th>
+                                <th>Motor OFF Time</th>
+                                <th>Duration</th>
+                                <th>Remarks</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr>
-                                <td>Alice</td>
-                                <td>30</td>
-                                <td>New York</td>
+                            <tr style="background-color: #11FF11;">
+                                <td>1</td>
+                                <td>28/05/24</td>
+                                <td>08:26:45 AM</td>
+                                <td>08:30:45 AM</td>
+                                <td>4 Min</td>
+                                <td>Normal</td>
                             </tr>
-                            <tr>
-                                <td>Bob</td>
-                                <td>25</td>
-                                <td>Los Angeles</td>
+                            <tr style="background-color: red; color: white">
+                                <td>2</td>
+                                <td>27/05/24</td>
+                                <td>02:26:45 PM</td>
+                                <td>02:28:45 AM</td>
+                                <td>2 Min</td>
+                                <td>Mains Cut</td>
                             </tr>
-                            <tr>
-                                <td>Charlie</td>
-                                <td>35</td>
-                                <td>Chicago</td>
+                            <tr style="background-color: #11FF11;">
+                                <td>3</td>
+                                <td>26/05/24</td>
+                                <td>05:25:45 AM</td>
+                                <td>05:30:45 AM</td>
+                                <td>5 Min</td>
+                                <td>Normal</td>
                             </tr>
                         </tbody>
                     </table>
@@ -227,7 +239,7 @@
                 color: "#5CB85C"
             });
             r.append(createGuage(100, 30, "Water Level", "%"));
-            r.append(createGuage(1000, 1000, "Volume", "L"));
+            r.append(createGuage(1000, 300, "Volume", "L"));
             r.append(createGuage(250, 230, "Line Volume", "V"));
             r.append(createGuage(15, 8, "Last Motor ON Time", "Min", true));
             r.append(createGuage(5, 2, "Daily Trigger Rate", "", true));
