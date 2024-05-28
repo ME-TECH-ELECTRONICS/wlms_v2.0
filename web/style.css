@@ -1,0 +1,200 @@
+        * {
+            padding: 0;
+            margin: 0;
+            box-sizing: border-box;
+        }
+        header {
+            width: 100%;
+            background-color: Black;
+            color: white;
+            padding: 15px;
+        }
+        .content {
+            display: flex;
+            width: 100%;
+            flex-direction: column;
+        }
+        .container1 {
+            display: flex;
+            padding: 20px;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+        .container2 {
+            display: flex;
+            padding: 20px;
+            flex-direction: column;
+            gap: 10px;
+            margin: 10px;
+            border: 1px solid black;
+        }
+        .menu {
+            display: flex;
+            gap: 5px;
+            padding: 5px;
+        }
+        .menu span {
+            padding: 10px;
+            border: 1px solid black;
+        }
+        .readings {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .items {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid;
+            padding: 10px;
+            width: 48%;
+            gap: 5px;
+        }
+
+        .table {
+            width: 100%;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        table, th, td {
+            border: 1px solid black;
+        }
+
+        th, td {
+            padding: 8px;
+            text-align: center;
+        }
+
+        .gauge {
+            position: relative;
+            border-radius: 50%/100% 100% 0 0;
+            overflow: hidden;
+            width: 100%;
+        }
+        .gauge:before {
+            content: "";
+            display: block;
+            padding-top: 50%;
+        }
+        .gauge .chart {
+            overflow: hidden;
+        }
+        .gauge .mask {
+            position: absolute;
+            left: 20%;
+            right: 20%;
+            bottom: 0;
+            top: 40%;
+            background-color: #fff;
+            border-radius: 50%/100% 100% 0 0;
+        }
+
+        .gauge .percentage {
+            position: absolute;
+            top: -1px;
+            left: -1px;
+            bottom: 0;
+            right: -1px;
+            background-color: #E9ECEF;
+            transform-origin: bottom center;
+            transition-duration: 600;
+        }
+        .gauge .value {
+            position: absolute;
+            bottom: 0%;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            font-weight: bold;
+            font-size: 25px;
+        }
+
+        .gauge .min {
+            position: absolute;
+            bottom: 0;
+            left: 5%;
+        }
+        .gauge .max {
+            position: absolute;
+            bottom: 0;
+            right: 5%;
+        }
+
+        .toggle-btn {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+        }
+        .text {
+            font-size: 18px;
+        }
+        .text1 {
+            font-size: 12px;
+        }
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 35px;
+            height: 25px;
+
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: -10px;
+            right: 2px;
+            bottom: -1px;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 25px;
+            border: 1px solid black;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 25px;
+            width: 25px;
+            left: 0;
+            bottom: 0;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: #2196F3;
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(17px);
+        }
+        #motorCtrl {
+            display: none;
+        }
+@media screen and (min-width: 800px) {
+            .items {
+                width: 30%;
+            }
+            .container1 {
+                flex-direction: row;
+                align-items: flex-start;
+            }
+        }
