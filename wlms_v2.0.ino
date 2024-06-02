@@ -138,9 +138,33 @@ void setup() {
     lcdCustomCharInit();
 }
 
-void WriteToLCD(int lvl, float voltage, String datetime) {
+void WriteToLCD(uint8_t lvl, int voltage, uint8_t mode, String date, String tim, uint8_t motor) {
     uint8_t range = calcRSSI();
+    //Line 1
+    lcd.setCursor(0,0);
+    lcd.print("WLMS v2.0");
+    lcd.setCursor(17,0);
+    lcd.print((mode == 0) ? "M" : "A");
+    lcd.write(1);
+    lcd.write(range);
     
+    //Line 2
+    lcd.setCursor(0,1);
+    lcd.print("LVL: ");
+    lcd.print(lvl);
+    lcd.print("%  MOTOR ");
+    lcd.print((motor == 0) ? "OFF" : "ON");
+    
+    //Line 3
+    lcd.setCursor(0,2);
+    lcd.print("MAINS: ");
+    lcd.print(voltage);
+    
+    //Line 4
+    lcd.setCursor(0,3);
+    lcd.print(date);
+    lcd.setCursor(13,3);
+    lcd.print(tim);
 }
 
 uint8_t calcRSSI() {
