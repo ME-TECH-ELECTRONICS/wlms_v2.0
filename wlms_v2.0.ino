@@ -27,6 +27,8 @@ bool lowVoltage = false;
 const byte RF_ADDR = "03152";
 uint8_t level = 0;
 
+String mainMenuList[3] = {""} 
+
 const byte ant[] = {
     0x1f,
     0x15,
@@ -124,10 +126,9 @@ void setup() {
     pinMode(LOW_VOLTAGE_LED_PIN, OUTPUT);
     pinMode(BUZZER_PIN, OUTPUT);
 
-    if (!rtc.begin()) {
-        Serial.println("Couldn't find RTC");
-        while (1);
-    }
+    URTCLIB_WIRE.begin();
+    rtc.set_12hour_mode(true);
+    
     if (!SD.begin(SD_CS_PIN)) {
         Serial.println("Initialization failed!");
         while(1);
@@ -218,4 +219,18 @@ void sleep(unsigned long delayMillis) {
             lastYieldMillis = currentMillis;
         }
     }
+}
+
+String formatTime() {
+    uint8_t hour = rtc.hour();
+    uint8_t minute = rtc.minute();
+    bool isPM = (rtc.hourModeAndAmPm() == 2) true : false;
+    char timeStr[8];
+    
+    snprintf(timeStr, sizeof(timeStr), "%02d:%02d%s", hour, minute, isPM ? "PM" : "AM");
+    return timeStr;
+}
+
+void MainMenu() {
+    
 }
