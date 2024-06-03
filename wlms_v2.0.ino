@@ -26,8 +26,10 @@ bool mode = true;
 bool lowVoltage = false;
 const byte RF_ADDR = "03152";
 uint8_t level = 0;
-String systemMenuList[3] = {"Mode", "Logging"} 
-
+uint8_t prevRow = 1;
+String systemMenuList[3] = {"Mode", "Logging"}; 
+String TimeMenuList[3] = {"Set Date", "Set Time"};
+String NetworkMenuList[3] = {"Update Rate", "Network Type"};
 
 
 const byte ant[] = {
