@@ -26,8 +26,9 @@ bool mode = true;
 bool lowVoltage = false;
 const byte RF_ADDR = "03152";
 uint8_t level = 0;
+String systemMenuList[3] = {"Mode", "Logging"} 
 
-String mainMenuList[3] = {""} 
+
 
 const byte ant[] = {
     0x1f,
@@ -231,6 +232,51 @@ String formatTime() {
     return timeStr;
 }
 
-void MainMenu() {
-    
+/*#include <LiquidCrystal_I2C.h>
+LiquidCrystal_I2C lcd(0x27, 20, 4);
+uint8_t prevRow = 1;
+void setup() {
+    lcd.init();
+    MainMenu();
+    delay(1000);
+    moveCursor(2);
+    delay(1000);
+    moveCursor(3);
+    delay(1000);
+    moveCursor(2);
+    delay(1000);
+    moveCursor(1);
 }
+
+void loop() {}*/
+
+
+void MainMenu() {
+    lcd.setCursor(0,0);
+    lcd.print("MENU");
+    lcd.setCursor(0,1);
+    lcd.print("> System");
+    lcd.setCursor(2,2);
+    lcd.print("Time");
+    lcd.setCursor(2,3);
+    lcd.print("Network");
+}
+
+void subMenu(String a, String title, uint8_t length) {
+    lcd.setCursor(0,0);
+    lcd.print(title);
+    for(int i=0; i<length; i++) {
+        lcd.setCursor(2,i+1);
+        lcd.print(a[i]);
+    }
+    lcd.setCursor(0,1);
+    lcd.print(">");
+}
+void moveCursor(uint8_t row) {
+    lcd.setCursor(0, prevRow);
+    lcd.print(" ");
+    lcd.setCursor(0, row);
+    lcd.print(">");
+    prevRow = row;
+}
+
