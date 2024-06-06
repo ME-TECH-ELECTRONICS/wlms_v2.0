@@ -30,7 +30,14 @@ uint8_t prevRow = 1;
 String systemMenuList[3] = {"Mode", "Logging"}; 
 String TimeMenuList[3] = {"Set Date", "Set Time"};
 String NetworkMenuList[3] = {"Update Rate", "Network Type"};
-
+struct defaultSettings {
+    bool mode;
+    bool logging;
+    String setDate;
+    String setTime;
+    uint8_t updateRate;
+    bool networkType;
+};
 
 const byte ant[] = {
     0x1f,
@@ -105,6 +112,14 @@ const byte gen[] = {
 
 File myFile;
 RTC_DS1307 rtc;
+defaultSettings settings = {
+    false,
+    true,
+    "00/00/0000",
+    "00:00AM",
+    2,
+    false
+};
 RF24 radio(7, 8); // CE, CSN
 LiquidCrystal_I2C lcd(0x27, 20, 4);
 SoftwareSerial gsm(10, 11); // RX, TX
@@ -140,6 +155,8 @@ void setup() {
     radio.setPALevel(RF24_PA_MIN);
     radio.startListening();
     lcdCustomCharInit();
+    
+    
 }
 
 void WriteToLCD(uint8_t lvl, int voltage, uint8_t mode, String date, String tim, uint8_t motor) {
@@ -264,7 +281,7 @@ void MainMenu() {
     lcd.print("Network");
 }
 
-void subMenu(String a, String title, uint8_t length) {
+void subMenu(String a[], String title, uint8_t length) {
     lcd.setCursor(0,0);
     lcd.print(title);
     for(int i=0; i<length; i++) {
