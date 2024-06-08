@@ -89,26 +89,7 @@ byte sig4[] = {
   0x1f,
   0x1f
 };
-byte two[] = {
-  0x00,
-  0x00,
-  0x00,
-  0x0E,
-  0x02,
-  0x0E,
-  0x08,
-  0x0E
-};
-byte gen[] = {
-  0x00,
-  0x00,
-  0x00,
-  0x0E,
-  0x10,
-  0x17,
-  0x11,
-  0x0E
-};
+
 
 File myFile;
 uRTCLib rtc(0x68);
@@ -212,8 +193,6 @@ void lcdCustomCharInit() {
   lcd.createChar(3, sig2);
   lcd.createChar(4, sig3);
   lcd.createChar(5, sig4);
-  lcd.createChar(6, two);
-  lcd.createChar(7, gen);
 }
 
 String sendATCmd(String cmd) {
