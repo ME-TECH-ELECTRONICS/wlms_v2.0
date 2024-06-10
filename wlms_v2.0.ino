@@ -111,8 +111,9 @@ byte sig4[] = {
 };
 
 
-File myFile;
+File dataFile;
 uRTCLib rtc(0x68);
+DataRecord record;
 defaultSettings settings = {
     false,
     true,
@@ -154,7 +155,7 @@ void setup() {
         while (1);
     }
 
-    File dataFile = SD.open("datalog.csv", FILE_WRITE);
+    dataFile = SD.open("datalog.csv", FILE_WRITE);
     if (dataFile) {
         if (dataFile.size() == 0) {
             dataFile.println("Sl_No,Water_Level,Motor_ON,Motor_OFF,Voltage,Mode,Remark");
