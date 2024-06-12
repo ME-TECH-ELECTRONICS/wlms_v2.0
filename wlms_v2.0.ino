@@ -51,7 +51,8 @@ struct defaultSettings {
 
 struct DataRecord {
     uint16_t slNo;
-    uint8_t waterLvl;
+    uint8_t onWaterLvl;
+    uint8_t offWaterLvl;
     uint32_t onTime;
     uint32_t offTime;
     uint16_t acVoltage;
@@ -127,6 +128,8 @@ LiquidCrystal_I2C lcd(0x27, 20, 4);
 SoftwareSerial gsm(10, 11); // RX, TX
 ZMPT101B vSense(A0, 50.0);
 
+SemaphoreHandle_t dataRecord_mutex;
+
 void beepBuzzer() {
     digitalWrite(BUZZER_PIN, HIGH);
     delay(200);
@@ -146,6 +149,8 @@ void setup() {
     pinMode(MOTOR_ON_LED_PIN, OUTPUT);
     pinMode(LOW_VOLTAGE_LED_PIN, OUTPUT);
     pinMode(BUZZER_PIN, OUTPUT);
+
+    dataRecord_mutex = xSemaphoreCreateMutex();
 
     URTCLIB_WIRE.begin();
     rtc.set_12hour_mode(true);
@@ -170,6 +175,35 @@ void setup() {
 
     vSense.setSensitivity(500.0);
     Serial.println("successful Initilized");
+}
+
+void mainLoop(void *pvParameters) {
+    level = rf.read();
+    if((level <= 15) && (acVoltage > 220) && (mode == false)) {
+        digitalWrite(MOTOR_RELAY_PIN, HIGH);
+        record.slNo += 1;
+        record.onTime = rtc.unixtime();
+        record.onWaterLvl = level;
+        record.acVoltage = acVoltage;
+        record.modeState = mode;
+
+    } 
+    if(acVoltage < 220) {
+        digitalWrite(MOTOR_RELAY_PIN, LOW);
+        record.offWaterLvl = level;
+        record.offTime = rtc.unixtime();
+        record.remark = 1;
+        sleep(1);
+        logData();
+    }
+    
+    if(level > 99) {
+        digitalWrite(MOTOR_RELAY_PIN, LOW);
+        record.offTime = rtc.unixtime();
+        record.remark = 0;
+        sleep(1);
+        logData();
+    }
 }
 void loop() {
     float voltage = vSense.getRmsVoltage();
@@ -204,8 +238,29 @@ void WriteToLCD(uint8_t lvl, int voltage, uint8_t mode, String date, String tim,
 }
 
 bool logData() {
-    
-    
+    if(xSemaphoreTake(dataRecord_mutex, portMAX_DELAY) == pdTRUE) {
+        if (dataFile) {
+            dataFile.print(record.slNo);
+            dataFile.print(",");
+            dataFile.print(record.waterLvl);
+            dataFile.print(",");
+            dataFile.print(record.onTime);
+            dataFile.print(",");
+            dataFile.print(record.offTime);
+            dataFile.print(",");
+            dataFile.print(record.acVoltage);
+            dataFile.print(",");
+            dataFile.print(record.motorStatus);
+            dataFile.print(",");
+            dataFile.println(record.Remark);
+            dataFile.close();
+        }
+
+        xSemaphoreGive(dataRecord_mutex);
+        return false;
+    } else {
+        return true;
+    }
 }
 
 uint8_t calcRSSI() {
@@ -243,7 +298,6 @@ String sendATCmd(String cmd) {
         response += c;
     }
     return response;
-    //return "";
 }
 
 void sleep(unsigned long delayMillis) {
