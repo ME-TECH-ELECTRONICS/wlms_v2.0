@@ -3,12 +3,12 @@
 #include <SPI.h>
 #include <SD.h>
 #include <Wire.h>
-#include "uRTCLib.h"
+#include <RTClib.h>
 #include <LiquidCrystal_I2C.h>
 #include <SPI.h>
 #include <nRF24L01.h>
 #include <RF24.h>
-#include <SoftwareSerial.h>
+#include <HardwareSerial.h>
 #include <ZMPT101B.h>
 
 // Declare Global Variables and GPIO pins
@@ -27,6 +27,7 @@ bool mode = true;
 bool lowVoltage = false;
 const byte RF_ADDR[] = "03152";
 uint8_t level = 0;
+uint16_t acVoltage = 0;
 uint8_t prevRow = 1;
 String systemMenuList[2] = {
     "Mode",
@@ -58,7 +59,7 @@ struct DataRecord {
     uint16_t acVoltage;
     uint8_t modeState;
     uint8_t remark;
-}
+};
 
 byte ant[] = {
     0x1f,
@@ -113,7 +114,7 @@ byte sig4[] = {
 
 
 File dataFile;
-uRTCLib rtc(0x68);
+RTC_DS1307 rtc;
 DataRecord record;
 defaultSettings settings = {
     false,
@@ -125,10 +126,9 @@ defaultSettings settings = {
 };
 RF24 radio(7, 8); // CE, CSN
 LiquidCrystal_I2C lcd(0x27, 20, 4);
-SoftwareSerial gsm(10, 11); // RX, TX
+HardwareSerial gsm(2);
 ZMPT101B vSense(A0, 50.0);
 
-SemaphoreHandle_t dataRecord_mutex;
 
 void beepBuzzer() {
     digitalWrite(BUZZER_PIN, HIGH);
@@ -150,10 +150,6 @@ void setup() {
     pinMode(LOW_VOLTAGE_LED_PIN, OUTPUT);
     pinMode(BUZZER_PIN, OUTPUT);
 
-    dataRecord_mutex = xSemaphoreCreateMutex();
-
-    URTCLIB_WIRE.begin();
-    rtc.set_12hour_mode(true);
 
     if (!SD.begin(SD_CS_PIN)) {
         Serial.println("Initialization failed!");
@@ -167,7 +163,7 @@ void setup() {
         }
         dataFile.close();
     }
-
+    if(!rtc.begin()) Serial.print("Couldn't find RTC");
     radio.openReadingPipe(0, RF_ADDR);
     radio.setPALevel(RF24_PA_MIN);
     radio.startListening();
@@ -178,11 +174,16 @@ void setup() {
 }
 
 void mainLoop(void *pvParameters) {
-    level = rf.read();
+  uint8_t pipe;
+    if (radio.available(&pipe)) {              // is there a payload? get the pipe number that recieved it
+      uint8_t bytes = radio.getPayloadSize();  // get the size of the payload
+      radio.read(&level, bytes);  
+    }
+    DateTime now = rtc.now();
     if((level <= 15) && (acVoltage > 220) && (mode == false)) {
         digitalWrite(MOTOR_RELAY_PIN, HIGH);
         record.slNo += 1;
-        record.onTime = rtc.unixtime();
+        record.onTime = now.unixtime();
         record.onWaterLvl = level;
         record.acVoltage = acVoltage;
         record.modeState = mode;
@@ -191,17 +192,17 @@ void mainLoop(void *pvParameters) {
     if(acVoltage < 220) {
         digitalWrite(MOTOR_RELAY_PIN, LOW);
         record.offWaterLvl = level;
-        record.offTime = rtc.unixtime();
+        record.offTime = now.unixtime();
         record.remark = 1;
-        sleep(1);
+        vTaskDelay(pdMS_TO_TICKS(1000));
         logData();
     }
     
     if(level > 99) {
         digitalWrite(MOTOR_RELAY_PIN, LOW);
-        record.offTime = rtc.unixtime();
+        record.offTime = now.unixtime();
         record.remark = 0;
-        sleep(1);
+        vTaskDelay(pdMS_TO_TICKS(1000));
         logData();
     }
 }
@@ -238,29 +239,23 @@ void WriteToLCD(uint8_t lvl, int voltage, uint8_t mode, String date, String tim,
 }
 
 bool logData() {
-    if(xSemaphoreTake(dataRecord_mutex, portMAX_DELAY) == pdTRUE) {
-        if (dataFile) {
-            dataFile.print(record.slNo);
-            dataFile.print(",");
-            dataFile.print(record.waterLvl);
-            dataFile.print(",");
-            dataFile.print(record.onTime);
-            dataFile.print(",");
-            dataFile.print(record.offTime);
-            dataFile.print(",");
-            dataFile.print(record.acVoltage);
-            dataFile.print(",");
-            dataFile.print(record.motorStatus);
-            dataFile.print(",");
-            dataFile.println(record.Remark);
-            dataFile.close();
-        }
-
-        xSemaphoreGive(dataRecord_mutex);
-        return false;
-    } else {
-        return true;
+    if (dataFile) {
+        dataFile.print(record.slNo);
+        dataFile.print(",");
+        dataFile.print(record.waterLvl);
+        dataFile.print(",");
+        dataFile.print(record.onTime);
+        dataFile.print(",");
+        dataFile.print(record.offTime);
+        dataFile.print(",");
+        dataFile.print(record.acVoltage);
+        dataFile.print(",");
+        dataFile.print(record.motorStatus);
+        dataFile.print(",");
+        dataFile.println(record.Remark);
+        dataFile.close();
     }
+    return false;
 }
 
 uint8_t calcRSSI() {
@@ -291,7 +286,7 @@ void lcdCustomCharInit() {
 
 String sendATCmd(String cmd) {
     gsm.println(cmd);
-    sleep(1000);
+    vTaskDelay(pdMS_TO_TICKS(1000));
     String response = "";
     while (gsm.available()) {
         char c = gsm.read();
@@ -300,19 +295,6 @@ String sendATCmd(String cmd) {
     return response;
 }
 
-void sleep(unsigned long delayMillis) {
-    unsigned long startMillis = millis();
-    unsigned long currentMillis = startMillis;
-    unsigned long yieldInterval = 2500;
-    unsigned long lastYieldMillis = startMillis;
-    while (millis() - startMillis < delayMillis) {
-        currentMillis = millis();
-        if (delayMillis >= 10000 && currentMillis - lastYieldMillis >= yieldInterval) {
-            yield();
-            lastYieldMillis = currentMillis;
-        }
-    }
-}
 
 String formatTime() {
     uint8_t hour = rtc.hour();
