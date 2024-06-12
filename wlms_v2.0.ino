@@ -11,7 +11,7 @@
 #include <HardwareSerial.h>
 #include <ZMPT101B.h>
 
-// Declare Global Variables and GPIO pins
+/* Declare Global Variables and GPIO pins */
 const int AC_VOLTAGE_SENSOR_PIN = 34;
 const int SD_CS_PIN = 5;
 const int MOTOR_RELAY_PIN = 32;
@@ -21,13 +21,11 @@ const int MOTOR_ON_LED_PIN = 27;
 const int LOW_VOLTAGE_LED_PIN = 14;
 const int BUZZER_PIN = 13;
 
-bool acSupplyStatus = false;
 bool motorStatus = false;
-bool mode = true;
-bool lowVoltage = false;
+bool mode = false;
 const byte RF_ADDR[] = "03152";
 uint8_t level = 0;
-uint16_t acVoltage = 0;
+float acVoltage = 0;
 uint8_t prevRow = 1;
 String systemMenuList[2] = {
     "Mode",
@@ -128,6 +126,7 @@ RF24 radio(7, 8); // CE, CSN
 LiquidCrystal_I2C lcd(0x27, 20, 4);
 HardwareSerial gsm(2);
 ZMPT101B vSense(A0, 50.0);
+SemaphoreHandle_t lcdWrite;
 
 
 void beepBuzzer() {
@@ -150,6 +149,7 @@ void setup() {
     pinMode(LOW_VOLTAGE_LED_PIN, OUTPUT);
     pinMode(BUZZER_PIN, OUTPUT);
 
+    lcdWrite = xSemaphoreCreateMutex();
 
     if (!SD.begin(SD_CS_PIN)) {
         Serial.println("Initialization failed!");
@@ -174,48 +174,72 @@ void setup() {
 }
 
 void mainLoop(void *pvParameters) {
-  uint8_t pipe;
-    if (radio.available(&pipe)) {              // is there a payload? get the pipe number that recieved it
-      uint8_t bytes = radio.getPayloadSize();  // get the size of the payload
-      radio.read(&level, bytes);  
-    }
-    DateTime now = rtc.now();
-    if((level <= 15) && (acVoltage > 220) && (mode == false)) {
-        digitalWrite(MOTOR_RELAY_PIN, HIGH);
-        record.slNo += 1;
-        record.onTime = now.unixtime();
-        record.onWaterLvl = level;
-        record.acVoltage = acVoltage;
-        record.modeState = mode;
+    uint8_t pipe;
+    while(1) {
+        if (radio.available(&pipe)) {
+            uint8_t bytes = radio.getPayloadSize();
+            radio.read(&level, bytes);
+        }
+        acVoltage = vSense.getRmsVoltage(5);
+        DateTime now = rtc.now();
+        if((level <= 15) && (acVoltage > 220) && (mode == false)) {
+            digitalWrite(MOTOR_RELAY_PIN, HIGH);
+            motorStatus = true;
+            record.slNo += 1;
+            record.onTime = now.unixtime();
+            record.onWaterLvl = level;
+            record.acVoltage = acVoltage;
+            record.modeState = mode;
 
-    } 
-    if(acVoltage < 220) {
-        digitalWrite(MOTOR_RELAY_PIN, LOW);
-        record.offWaterLvl = level;
-        record.offTime = now.unixtime();
-        record.remark = 1;
-        vTaskDelay(pdMS_TO_TICKS(1000));
-        logData();
-    }
-    
-    if(level > 99) {
-        digitalWrite(MOTOR_RELAY_PIN, LOW);
-        record.offTime = now.unixtime();
-        record.remark = 0;
-        vTaskDelay(pdMS_TO_TICKS(1000));
-        logData();
+        }
+        if(acVoltage < 220) {
+            digitalWrite(MOTOR_RELAY_PIN, LOW);
+            record.offWaterLvl = level;
+            record.offTime = now.unixtime();
+            record.remark = 1;
+            vTaskDelay(pdMS_TO_TICKS(1));
+            logData();
+        }
+
+        if(level > 99) {
+            digitalWrite(MOTOR_RELAY_PIN, LOW);
+            record.offTime = now.unixtime();
+            record.remark = 0;
+            vTaskDelay(pdMS_TO_TICKS(1));
+            logData();
+        }
+        if(xSemaphoreTake(lcdWrite, portMAX_DELAY) == pdTRUE) {
+            WriteToLCD(level, acVoltage, mode, dateNow, timeNow, motorStatus);
+            xSemaphoreGive(lcdWrite);
+            vTaskDelay(pdMS_TO_TICKS(25));
+        }
     }
 }
-void loop() {
-    float voltage = vSense.getRmsVoltage();
+
+void menuPrint(void *pvParameters) {
+    while(1) {
+        uint8_t enterBtnState = digitalRead(enterBtn);
+        if(enterBtnState == LOW) {
+            while(!enterBtnState);
+            while(xSemaphoreTake(lcdWrite, portMAX_DELAY) == pdTRUE) {
+                MainMenu();
+                if(digitalRead(escBtn) == LOW) {
+                    xSemaphoreGive(lcdWrite);
+                    break;
+                }
+                
+            }
+        }
+    }
 }
-void WriteToLCD(uint8_t lvl, int voltage, uint8_t mode, String date, String tim, uint8_t motor) {
+void loop() {}
+void WriteToLCD(uint8_t lvl, int voltage, uint8_t Mode, String date, String tim, uint8_t motor) {
     uint8_t range = calcRSSI();
     //Line 1
     lcd.setCursor(0, 0);
     lcd.print("WLMS v2.0");
     lcd.setCursor(17, 0);
-    lcd.print((mode == 0) ? "M": "A");
+    lcd.print((Mode == 0) ? "M": "A");
     lcd.write(1);
     lcd.write(range);
 
@@ -224,7 +248,7 @@ void WriteToLCD(uint8_t lvl, int voltage, uint8_t mode, String date, String tim,
     lcd.print("LVL: ");
     lcd.print(lvl);
     lcd.print("%  MOTOR ");
-    lcd.print((motor == 0) ? "OFF": "ON");
+    lcd.print((motor == false) ? "OFF": "ON");
 
     //Line 3
     lcd.setCursor(0, 2);
