@@ -20,6 +20,8 @@ const int AUTO_MODE_LED_PIN = 26;
 const int MOTOR_ON_LED_PIN = 27;
 const int LOW_VOLTAGE_LED_PIN = 14;
 const int BUZZER_PIN = 13;
+const ROTARY_CLK_PIN = 2;
+const ROTARY_DT_PIN = 2;
 
 bool motorStatus = false;
 bool mode = false;
@@ -27,6 +29,9 @@ const byte RF_ADDR[] = "03152";
 uint8_t level = 0;
 float acVoltage = 0;
 uint8_t prevRow = 1;
+uint8_t count = 1;
+uint8_t clkState;
+uint8_t clkLastState;
 String systemMenuList[2] = {
     "Mode",
     "Logging"
@@ -142,6 +147,8 @@ void setup() {
     analogReadResolution(12);
     // Initialize GPIOs
     pinMode(AC_VOLTAGE_SENSOR_PIN, INPUT);
+    pinMode(ROTARY_CLK_PIN, INPUT);
+    pinMode(ROTARY_DT_PIN, INPUT);
     pinMode(MOTOR_RELAY_PIN, OUTPUT);
     pinMode(AC_SUPPLY_LED_PIN, OUTPUT);
     pinMode(AUTO_MODE_LED_PIN, OUTPUT);
@@ -150,7 +157,7 @@ void setup() {
     pinMode(BUZZER_PIN, OUTPUT);
 
     lcdWrite = xSemaphoreCreateMutex();
-
+    clkLastState = digitalRead(ROTARY_CLK_PIN);
     if (!SD.begin(SD_CS_PIN)) {
         Serial.println("Initialization failed!");
         while (1);
@@ -227,6 +234,17 @@ void menuPrint(void *pvParameters) {
                     xSemaphoreGive(lcdWrite);
                     break;
                 }
+                clkState = digitalRead(ROTARY_CLK_PIN);
+                if(clkState != clkLastState) {
+                    if(digitalRead(ROTARY_DT_PIN) != clkState) {
+                        count++;
+                    } else {
+                        count--;
+                    }
+                    if(count > 3) count = 3;
+                    if(count > 1) count = 1;
+                }
+                clkLastState = clkState;
                 
             }
         }
