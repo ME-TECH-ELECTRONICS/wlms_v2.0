@@ -20,8 +20,9 @@ const int AUTO_MODE_LED_PIN = 26;
 const int MOTOR_ON_LED_PIN = 27;
 const int LOW_VOLTAGE_LED_PIN = 14;
 const int BUZZER_PIN = 13;
-const ROTARY_CLK_PIN = 2;
-const ROTARY_DT_PIN = 2;
+const int ROTARY_CLK_PIN = 2;
+const int ROTARY_DT_PIN = 3;
+const int ROTARY_SW_PIN = 3;
 
 bool motorStatus = false;
 bool mode = false;
@@ -224,6 +225,8 @@ void mainLoop(void *pvParameters) {
 }
 
 void menuPrint(void *pvParameters) {
+    uint8_t menuDepth = 1;
+    uint8_t menu = 1;
     while(1) {
         uint8_t enterBtnState = digitalRead(enterBtn);
         if(enterBtnState == LOW) {
@@ -234,21 +237,63 @@ void menuPrint(void *pvParameters) {
                     xSemaphoreGive(lcdWrite);
                     break;
                 }
-                clkState = digitalRead(ROTARY_CLK_PIN);
-                if(clkState != clkLastState) {
-                    if(digitalRead(ROTARY_DT_PIN) != clkState) {
-                        count++;
+                readRotary(3);
+                if(digitalRead(ROTARY_SW_PIN) == LOW) {
+                    if(prevRow == 1) {
+                        subMenu(systemMenuList, "MENU > SYSTEM", 2);
+                        menuDepth++;
+                        while(1) {
+                            if(digitalRead(ESC_BTN_PIN) == LOW) {
+                                menuDepth--;
+                                break;
+                            };
+                            readRotary(2);
+                            if(prevRow == 1) {
+                                subMenu(["Automatic", "Manual"], "SYSTEM > MODE", 2);
+                                menuDepth++;
+                                while(1) {
+                                    readRotary();
+                                    if(digitalRead(ROTARY_SW_PIN == LOW)) {
+                                        settings.mode = (prevRow == 1) ? false: true;
+                                    }
+                                }
+                            }
+
+                        }
+                    } else if(prevRow = 2) {
+                        subMenu(TimeMenuList, "MENU > TIME", 2);
+                        menuDepth++;
+                        menu = prevRow;
                     } else {
-                        count--;
+                        subMenu(NetworkMenuList, "MENU > NETWORK", 2);
+                        menuDepth++;
+                        menu = prevRow;
                     }
-                    if(count > 3) count = 3;
-                    if(count > 1) count = 1;
+                    while(1) {
+                        if(digitalRead(ESC_BTN_PIN) == LOW) break;
+
+                    }
+
                 }
-                clkLastState = clkState;
-                
             }
         }
     }
+}
+
+void readRotary(uint8_t maxPoint) {
+    clkState = digitalRead(ROTARY_CLK_PIN);
+    if(clkState != clkLastState) {
+        if(digitalRead(ROTARY_DT_PIN) != clkState) {
+            count++;
+        } else {
+            count--;
+        }
+        if(count > maxPoint) count = maxPoint;
+        if(count > 1) count = 1;
+    }
+    moveCursor(count);
+
+    clkLastState = clkState;
 }
 void loop() {}
 void WriteToLCD(uint8_t lvl, int voltage, uint8_t Mode, String date, String tim, uint8_t motor) {
@@ -379,6 +424,7 @@ void MainMenu() {
 }
 
 void subMenu(String a[], String title, uint8_t length) {
+    lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print(title);
     for (int i = 0; i < length; i++) {
