@@ -18,7 +18,7 @@ const int AC_VOLTAGE_SENSOR_PIN = 34;
 const int SD_CS_PIN = 13;
 const int RF_CS_PIN = 5;
 const int MOTOR_RELAY_PIN = 27;
-const int MANUAL_MOTOR_ON = 26;
+const int MANUAL_START_BTN = 26;
 const int AUTO_MODE_LED_PIN = 15;
 const int BUZZER_PIN = 12;
 const int ROTARY_CLK_PIN = 32;
@@ -83,7 +83,7 @@ void setup() {
     pinMode(AC_VOLTAGE_SENSOR_PIN, INPUT);
     pinMode(ROTARY_CLK_PIN, INPUT);
     pinMode(ROTARY_DT_PIN, INPUT);
-    pinMode(MANUAL_MOTOR_ON, INPUT);
+    pinMode(MANUAL_START_BTN, INPUT);
     pinMode(ROTARY_SW_PIN, INPUT);
     pinMode(MOTOR_RELAY_PIN, OUTPUT);
     pinMode(AUTO_MODE_LED_PIN, OUTPUT);
@@ -101,7 +101,7 @@ void setup() {
     dataFile = SD.open("datalog.csv", FILE_WRITE);
     if (dataFile) {
         if (dataFile.size() == 0) {
-            dataFile.println("Sl_No,Water_Level,Motor_ON,Motor_OFF,Voltage,Mode,Remark");
+            dataFile.println("Sl_No,Water_Level_ON,Water_Level_OFF,Motor_ON,Motor_OFF,Voltage,Mode,Remark");
         }
         dataFile.close();
     }
@@ -182,7 +182,7 @@ void mainLoop(void *pvParameters) {
                 xSemaphoreGive(dataRW);
             }
         }
-        WriteToLCD(level, acVoltage, mode, dateNow, timeNow, motorStatus);
+        WriteToLCD(level, acVoltage, mode, motorStatus);
         vTaskDelay(pdMS_TO_TICKS(25));
     }
 }
@@ -262,20 +262,7 @@ void handleOTAUpdate() {
     }
 }
 
-void readRotary(uint8_t maxPoint) {
-    clkState = digitalRead(ROTARY_CLK_PIN);
-    if(clkState != clkLastState) {
-        if(digitalRead(ROTARY_DT_PIN) != clkState) {
-            count++;
-        } else {
-            count--;
-        }
-        if(count > maxPoint) count = maxPoint;
-        if(count > 1) count = 1;
-    }
-    moveCursor(count);
-    clkLastState = clkState;
-}
+
 void loop() {}
 void WriteToLCD(uint8_t lvl, int voltage, uint8_t m, uint8_t motor) {
     //Line 1
@@ -309,7 +296,9 @@ bool logData() {
     if (dataFile) {
         dataFile.print(record.slNo);
         dataFile.print(",");
-        dataFile.print(record.waterLvl);
+        dataFile.print(record.onWaterLvl);
+        dataFile.print(",");
+        dataFile.print(record.offWaterLvl);
         dataFile.print(",");
         dataFile.print(record.onTime);
         dataFile.print(",");
@@ -317,9 +306,9 @@ bool logData() {
         dataFile.print(",");
         dataFile.print(record.acVoltage);
         dataFile.print(",");
-        dataFile.print(record.motorStatus);
+        dataFile.print(mode);
         dataFile.print(",");
-        dataFile.println(record.Remark);
+        dataFile.println(record.remark);
         dataFile.close();
     }
     return false;
@@ -332,7 +321,7 @@ String formatTime() {
     uint8_t minute = now.minute();
     bool isPM = (hour> 12) ? true: false;
     if(hour > 12) hour -= 12;
-    char timeStr[8];
+    char timeStr[11];
     snprintf(timeStr, sizeof(timeStr), "%02d:%02d%s", hour, minute, isPM ? "PM": "AM");
     return String(timeStr);
 }
@@ -342,7 +331,7 @@ String formatDate() {
     uint8_t day = now.day();
     uint8_t month = now.month();
     uint8_t year = now.year();
-    char dateStr[9];
-    snprintf(timeStr, sizeof(timeStr), "%02d/%02d/%02d", day, month, year);
+    char dateStr[16];
+    snprintf(dateStr, sizeof(dateStr), "%02d/%02d/%02d", day, month, year);
     return String(dateStr);
 }
