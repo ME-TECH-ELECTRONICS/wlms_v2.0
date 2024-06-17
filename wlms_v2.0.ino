@@ -38,6 +38,8 @@ uint8_t prevRow = 1;
 uint8_t count = 1;
 uint8_t clkState;
 uint8_t clkLastState;
+const char *ssid = "WLMS";
+const char *password = "wlms@1234"; 
 
 struct DataRecord {
     uint16_t slNo;
@@ -71,8 +73,6 @@ ZMPT101B vSense(A0, 50.0);
 WebServer server(80);
 SemaphoreHandle_t lcdWrite;
 SemaphoreHandle_t dataRW;
-
-
 
 void setup() {
     Serial.begin(115200);
@@ -109,7 +109,6 @@ void setup() {
     radio.openReadingPipe(0, RF_ADDR);
     radio.setPALevel(RF24_PA_MIN);
     radio.startListening();
-    lcdCustomCharInit();
 
     vSense.setSensitivity(500.0);
     Serial.println("successful Initilized");
