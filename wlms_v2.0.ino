@@ -2,7 +2,6 @@
 #include <FS.h>
 #include <SD.h>
 #include <SPI.h>
-#include <SPI.h>
 #include <WiFi.h>
 #include <RF24.h>
 #include <Wire.h>
@@ -21,8 +20,6 @@ const int MOTOR_RELAY_PIN = 27;
 const int MANUAL_START_BTN = 26;
 const int AUTO_MODE_LED_PIN = 15;
 const int BUZZER_PIN = 12;
-const int ROTARY_CLK_PIN = 32;
-const int ROTARY_DT_PIN = 35;
 const int ROTARY_SW_PIN = 25;
 
 bool motorStatus = false;
@@ -34,10 +31,6 @@ float acVoltage = 0;
 unsigned long startTime;
 uint16_t elapsed = 0;
 uint8_t trig_rate = 0;
-uint8_t prevRow = 1;
-uint8_t count = 1;
-uint8_t clkState;
-uint8_t clkLastState;
 const char *ssid = "WLMS";
 const char *password = "wlms@1234"; 
 
@@ -80,14 +73,7 @@ void setup() {
     analogReadResolution(12);
 
     // Initialize GPIOs
-    pinMode(AC_VOLTAGE_SENSOR_PIN, INPUT);
-    pinMode(ROTARY_CLK_PIN, INPUT);
-    pinMode(ROTARY_DT_PIN, INPUT);
-    pinMode(MANUAL_START_BTN, INPUT);
-    pinMode(ROTARY_SW_PIN, INPUT);
-    pinMode(MOTOR_RELAY_PIN, OUTPUT);
-    pinMode(AUTO_MODE_LED_PIN, OUTPUT);
-    pinMode(BUZZER_PIN, OUTPUT);
+    initializePins()
 
     lcdWrite = xSemaphoreCreateMutex();
     dataRW = xSemaphoreCreateMutex();
@@ -111,7 +97,7 @@ void setup() {
     radio.startListening();
 
     vSense.setSensitivity(500.0);
-    Serial.println("successful Initilized");
+    Serial.println("Successfully Initialized");
     WiFi.softAP(ssid, password);
     Serial.println("Access Point created");
     Serial.print("IP address: ");
@@ -138,6 +124,7 @@ void mainLoop(void *pvParameters) {
         DateTime now = rtc.now();
         if((level <= 15) && (acVoltage > 220) && (mode == false)) {
             startTime = millis();
+            trig_rate++;
             digitalWrite(MOTOR_RELAY_PIN, HIGH);
             motorStatus = true;
             record.slNo += 1;
@@ -149,6 +136,7 @@ void mainLoop(void *pvParameters) {
         }
         if((level < 100) && (resumeOnACrestore == true) && (acVoltage > 220)) {
             resumeOnACrestore = false;
+            trig_rate++;
             digitalWrite(MOTOR_RELAY_PIN, HIGH);
             startTime = millis();
             record.slNo += 1;
@@ -189,14 +177,8 @@ void mainLoop(void *pvParameters) {
 void handleBtn(void *pvParameters) {
     if(digitalRead(MANUAL_START_BTN) == LOW) {
         vTaskDelay(pdMS_TO_TICKS(20));
-        if(motorStatus == true) {
-            digitalWrite(MOTOR_RELAY_PIN, LOW);
-            motorStatus = false;
-        }
-        else if(motorStatus == false) {
-            digitalWrite(MOTOR_RELAY_PIN, HIGH);
-            motorStatus = true;
-        }
+        motorStatus = !motorStatus;
+        digitalWrite(MOTOR_RELAY_PIN, motorStatus ? HIGH : LOW);
     }
 }
 void webServerTask(void *pvParameters) {
@@ -206,6 +188,16 @@ void webServerTask(void *pvParameters) {
     }
 }
 
+void initializePins() {
+    int inputPins[] = {AC_VOLTAGE_SENSOR_PIN, MANUAL_START_BTN, ROTARY_SW_PIN};
+    for (int i = 0; i < 3; i++) {
+        pinMode(inputPins[i], INPUT);
+    }
+    int outputPins[] = {MOTOR_RELAY_PIN, AUTO_MODE_LED_PIN, BUZZER_PIN};
+    for (int i = 0; i < 3; i++) {
+        pinMode(outputPins[i], OUTPUT);
+    }
+}
 
 void beepBuzzer() {
     digitalWrite(BUZZER_PIN, HIGH);
@@ -269,7 +261,7 @@ void WriteToLCD(uint8_t lvl, int voltage, uint8_t m, uint8_t motor) {
     lcd.setCursor(0, 0);
     lcd.print("WLMS v2.0");
     lcd.setCursor(18, 0);
-    lcd.print((m == 0) ? "M": "A");
+    lcd.print((m == 0) ? "M" : "A");
     lcd.write(0);
 
     //Line 2
@@ -277,7 +269,7 @@ void WriteToLCD(uint8_t lvl, int voltage, uint8_t m, uint8_t motor) {
     lcd.print("LVL: ");
     lcd.print(lvl);
     lcd.print("%  MOTOR ");
-    lcd.print((motor == false) ? "OFF": "ON");
+    lcd.print((motor == false) ? "OFF" : "ON");
 
     //Line 3
     lcd.setCursor(0, 2);
@@ -319,10 +311,10 @@ String formatTime() {
     DateTime now = rtc.now();
     uint8_t hour = now.hour();
     uint8_t minute = now.minute();
-    bool isPM = (hour> 12) ? true: false;
+    bool isPM = (hour > 12) ? true : false;
     if(hour > 12) hour -= 12;
     char timeStr[11];
-    snprintf(timeStr, sizeof(timeStr), "%02d:%02d%s", hour, minute, isPM ? "PM": "AM");
+    snprintf(timeStr, sizeof(timeStr), "%02d:%02d%s", hour, minute, isPM ? "PM" : "AM");
     return String(timeStr);
 }
 
