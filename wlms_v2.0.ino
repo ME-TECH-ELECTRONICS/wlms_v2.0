@@ -1,17 +1,17 @@
 /* Include Libaray */
-#include <WiFi.h>
-#include <SPI.h>
+#include <FS.h>
 #include <SD.h>
+#include <SPI.h>
+#include <SPI.h>
+#include <WiFi.h>
+#include <RF24.h>
 #include <Wire.h>
 #include <RTClib.h>
-#include <LiquidCrystal_I2C.h>
-#include <SPI.h>
-#include <WebServer.h>
-#include <FS.h>
 #include <Update.h>
 #include <nRF24L01.h>
-#include <RF24.h>
 #include <ZMPT101B.h>
+#include <WebServer.h>
+#include <LiquidCrystal_I2C.h>
 
 /* Declare Global Variables and GPIO pins */
 const int AC_VOLTAGE_SENSOR_PIN = 34;
@@ -26,6 +26,8 @@ const int ROTARY_DT_PIN = 35;
 const int ROTARY_SW_PIN = 25;
 
 bool motorStatus = false;
+bool mode = false;
+bool resumeOnACrestore = false;
 const byte RF_ADDR[] = "03152";
 uint8_t level = 0;
 float acVoltage = 0;
@@ -36,26 +38,6 @@ uint8_t prevRow = 1;
 uint8_t count = 1;
 uint8_t clkState;
 uint8_t clkLastState;
-String systemMenuList[2] = {
-    "Mode",
-    "Logging"
-};
-String TimeMenuList[2] = {
-    "Set Date",
-    "Set Time"
-};
-String NetworkMenuList[2] = {
-    "Update Rate",
-    "Network Type"
-};
-struct defaultSettings {
-    bool mode;
-    bool logging;
-    String setDate;
-    String setTime;
-    uint8_t updateRate;
-    bool networkType;
-};
 
 struct DataRecord {
     uint16_t slNo;
@@ -83,14 +65,6 @@ byte wifi[] = {
 File dataFile;
 RTC_DS1307 rtc;
 DataRecord record;
-defaultSettings settings = {
-    false,
-    true,
-    "00/00/0000",
-    "00:00AM",
-    2,
-    false
-};
 RF24 radio(7, RF_CS_PIN); // CE, CSN
 LiquidCrystal_I2C lcd(0x27, 20, 4);
 ZMPT101B vSense(A0, 50.0);
@@ -98,29 +72,26 @@ WebServer server(80);
 SemaphoreHandle_t lcdWrite;
 SemaphoreHandle_t dataRW;
 
-void beepBuzzer() {
-    digitalWrite(BUZZER_PIN, HIGH);
-    delay(200);
-    digitalWrite(BUZZER_PIN, LOW);
-}
+
 
 void setup() {
     Serial.begin(115200);
     lcd.createChar(0, wifi);
     analogReadResolution(12);
+
     // Initialize GPIOs
     pinMode(AC_VOLTAGE_SENSOR_PIN, INPUT);
     pinMode(ROTARY_CLK_PIN, INPUT);
     pinMode(ROTARY_DT_PIN, INPUT);
+    pinMode(MANUAL_MOTOR_ON, INPUT);
+    pinMode(ROTARY_SW_PIN, INPUT);
     pinMode(MOTOR_RELAY_PIN, OUTPUT);
-    pinMode(AC_SUPPLY_LED_PIN, OUTPUT);
     pinMode(AUTO_MODE_LED_PIN, OUTPUT);
-    pinMode(MOTOR_ON_LED_PIN, OUTPUT);
-    pinMode(LOW_VOLTAGE_LED_PIN, OUTPUT);
     pinMode(BUZZER_PIN, OUTPUT);
 
     lcdWrite = xSemaphoreCreateMutex();
     dataRW = xSemaphoreCreateMutex();
+
     clkLastState = digitalRead(ROTARY_CLK_PIN);
     if (!SD.begin(SD_CS_PIN)) {
         Serial.println("Initialization failed!");
@@ -166,7 +137,7 @@ void mainLoop(void *pvParameters) {
         }
         acVoltage = vSense.getRmsVoltage(5);
         DateTime now = rtc.now();
-        if((level <= 15) && (acVoltage > 220) && (settings.mode == false)) {
+        if((level <= 15) && (acVoltage > 220) && (mode == false)) {
             startTime = millis();
             digitalWrite(MOTOR_RELAY_PIN, HIGH);
             motorStatus = true;
@@ -174,7 +145,7 @@ void mainLoop(void *pvParameters) {
             record.onTime = now.unixtime();
             record.onWaterLvl = level;
             record.acVoltage = acVoltage;
-            record.modeState = settings.mode;
+            record.modeState = mode;
 
         }
         if((level < 100) && (resumeOnACrestore == true) && (acVoltage > 220)) {
@@ -184,7 +155,7 @@ void mainLoop(void *pvParameters) {
             record.slNo += 1;
             record.onWaterLvl = level;
             record.acVoltage = acVoltage;
-            record.modeState = settings.mode;
+            record.modeState = mode;
             record.onTime = now.unixtime();
         }
         if(acVoltage < 220) {
@@ -212,17 +183,21 @@ void mainLoop(void *pvParameters) {
                 xSemaphoreGive(dataRW);
             }
         }
-        if(xSemaphoreTake(lcdWrite, portMAX_DELAY) == pdTRUE) {
-            WriteToLCD(level, acVoltage, settings.mode, dateNow, timeNow, motorStatus);
-            xSemaphoreGive(lcdWrite);
-            vTaskDelay(pdMS_TO_TICKS(25));
-        }
+        WriteToLCD(level, acVoltage, mode, dateNow, timeNow, motorStatus);
+        vTaskDelay(pdMS_TO_TICKS(25));
     }
 }
 void handleBtn(void *pvParameters) {
     if(digitalRead(MANUAL_START_BTN) == LOW) {
         vTaskDelay(pdMS_TO_TICKS(20));
-        digitalWrite(MOTOR_RELAY_PIN, HIGH);
+        if(motorStatus == true) {
+            digitalWrite(MOTOR_RELAY_PIN, LOW);
+            motorStatus = false;
+        }
+        else if(motorStatus == false) {
+            digitalWrite(MOTOR_RELAY_PIN, HIGH);
+            motorStatus = true;
+        }
     }
 }
 void webServerTask(void *pvParameters) {
@@ -230,6 +205,13 @@ void webServerTask(void *pvParameters) {
         server.handleClient();
         vTaskDelay(1); // Yield to other tasks
     }
+}
+
+
+void beepBuzzer() {
+    digitalWrite(BUZZER_PIN, HIGH);
+    delay(200);
+    digitalWrite(BUZZER_PIN, LOW);
 }
 
 void handleRoot() {
@@ -244,7 +226,7 @@ void handleRoot() {
 
 void handleReqData() {
     if(xSemaphoreTake(dataRW, portMAX_DELAY) == pdTRUE) {
-        String jsonData = "{\"motor_status\": " + String(motorStatus) + ", \"ctrl_mode\": " + String(settings.mode) + ", \"water_lvl\": " + String(level) + ", \"voltage\": " + String(acVoltage) + ", \"motor_ontime\": " + String(elapsed) + ", \"trig_rate\": " + String(trig_rate) + "}";
+        String jsonData = "{\"motor_status\": " + String(motorStatus) + ", \"ctrl_mode\": " + String(mode) + ", \"water_lvl\": " + String(level) + ", \"voltage\": " + String(acVoltage) + ", \"motor_ontime\": " + String(elapsed) + ", \"trig_rate\": " + String(trig_rate) + "}";
         server.send(200, "application/json", jsonData);
         xSemaphoreGive(dataRW);
     }
@@ -293,7 +275,6 @@ void readRotary(uint8_t maxPoint) {
         if(count > 1) count = 1;
     }
     moveCursor(count);
-
     clkLastState = clkState;
 }
 void loop() {}
@@ -362,39 +343,7 @@ String formatDate() {
     uint8_t day = now.day();
     uint8_t month = now.month();
     uint8_t year = now.year();
-    
     char dateStr[9];
     snprintf(timeStr, sizeof(timeStr), "%02d/%02d/%02d", day, month, year);
     return String(dateStr);
 }
-
-/*
-void MainMenu() {
-    lcd.setCursor(0, 0);
-    lcd.print("MENU");
-    lcd.setCursor(0, 1);
-    lcd.print("> System");
-    lcd.setCursor(2, 2);
-    lcd.print("Time");
-    lcd.setCursor(2, 3);
-    lcd.print("Network");
-}
-
-void subMenu(String a[], String title, uint8_t length) {
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print(title);
-    for (int i = 0; i < length; i++) {
-        lcd.setCursor(2, i + 1);
-        lcd.print(a[i]);
-    }
-    lcd.setCursor(0, 1);
-    lcd.print(">");
-}
-void moveCursor(uint8_t row) {
-    lcd.setCursor(0, prevRow);
-    lcd.print(" ");
-    lcd.setCursor(0, row);
-    lcd.print(">");
-    prevRow = row;
-}*/
