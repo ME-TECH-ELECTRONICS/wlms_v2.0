@@ -15,16 +15,15 @@
 
 /* Declare Global Variables and GPIO pins */
 const int AC_VOLTAGE_SENSOR_PIN = 34;
-const int SD_CS_PIN = 5;
-const int MOTOR_RELAY_PIN = 32;
-const int AC_SUPPLY_LED_PIN = 25;
-const int AUTO_MODE_LED_PIN = 26;
-const int MOTOR_ON_LED_PIN = 27;
-const int LOW_VOLTAGE_LED_PIN = 14;
-const int BUZZER_PIN = 13;
-const int ROTARY_CLK_PIN = 2;
-const int ROTARY_DT_PIN = 3;
-const int ROTARY_SW_PIN = 3;
+const int SD_CS_PIN = 13;
+const int RF_CS_PIN = 5;
+const int MOTOR_RELAY_PIN = 27;
+const int MANUAL_MOTOR_ON = 26;
+const int AUTO_MODE_LED_PIN = 15;
+const int BUZZER_PIN = 12;
+const int ROTARY_CLK_PIN = 32;
+const int ROTARY_DT_PIN = 35;
+const int ROTARY_SW_PIN = 25;
 
 bool motorStatus = false;
 const byte RF_ADDR[] = "03152";
@@ -92,11 +91,12 @@ defaultSettings settings = {
     2,
     false
 };
-RF24 radio(7, 8); // CE, CSN
+RF24 radio(7, RF_CS_PIN); // CE, CSN
 LiquidCrystal_I2C lcd(0x27, 20, 4);
 ZMPT101B vSense(A0, 50.0);
 WebServer server(80);
 SemaphoreHandle_t lcdWrite;
+SemaphoreHandle_t dataRW;
 
 void beepBuzzer() {
     digitalWrite(BUZZER_PIN, HIGH);
@@ -120,6 +120,7 @@ void setup() {
     pinMode(BUZZER_PIN, OUTPUT);
 
     lcdWrite = xSemaphoreCreateMutex();
+    dataRW = xSemaphoreCreateMutex();
     clkLastState = digitalRead(ROTARY_CLK_PIN);
     if (!SD.begin(SD_CS_PIN)) {
         Serial.println("Initialization failed!");
@@ -176,10 +177,21 @@ void mainLoop(void *pvParameters) {
             record.modeState = settings.mode;
 
         }
+        if((level < 100) && (resumeOnACrestore == true) && (acVoltage > 220)) {
+            resumeOnACrestore = false;
+            digitalWrite(MOTOR_RELAY_PIN, HIGH);
+            startTime = millis();
+            record.slNo += 1;
+            record.onWaterLvl = level;
+            record.acVoltage = acVoltage;
+            record.modeState = settings.mode;
+            record.onTime = now.unixtime();
+        }
         if(acVoltage < 220) {
             digitalWrite(MOTOR_RELAY_PIN, LOW);
             if(xSemaphoreTake(dataRW, portMAX_DELAY) == pdTRUE) {
                 elapsed = millis() - startTime;
+                resumeOnACrestore = true;
                 record.offWaterLvl = level;
                 record.offTime = now.unixtime();
                 record.remark = 1;
@@ -192,7 +204,7 @@ void mainLoop(void *pvParameters) {
         if(level > 99) {
             digitalWrite(MOTOR_RELAY_PIN, LOW);
             if(xSemaphoreTake(dataRW, portMAX_DELAY) == pdTRUE) {
-                elapsed millis() - startTime;
+                elapsed = millis() - startTime;
                 record.offTime = now.unixtime();
                 record.remark = 0;
                 vTaskDelay(pdMS_TO_TICKS(1));
@@ -207,73 +219,16 @@ void mainLoop(void *pvParameters) {
         }
     }
 }
+void handleBtn(void *pvParameters) {
+    if(digitalRead(MANUAL_START_BTN) == LOW) {
+        vTaskDelay(pdMS_TO_TICKS(20));
+        digitalWrite(MOTOR_RELAY_PIN, HIGH);
+    }
+}
 void webServerTask(void *pvParameters) {
     while (true) {
         server.handleClient();
         vTaskDelay(1); // Yield to other tasks
-    }
-}
-
-void dataGenerationTask(void *pvParameters) {
-    while (true) {
-        count++;
-        vTaskDelay(5000 / portTICK_PERIOD_MS); // Increment count every 5 seconds
-    }
-}
-
-void menuPrint(void *pvParameters) {
-    uint8_t menuDepth = 1;
-    uint8_t menu = 1;
-    while(1) {
-        uint8_t enterBtnState = digitalRead(enterBtn);
-        if(enterBtnState == LOW) {
-            while(!enterBtnState);
-            while(xSemaphoreTake(lcdWrite, portMAX_DELAY) == pdTRUE) {
-                MainMenu();
-                if(digitalRead(escBtn) == LOW) {
-                    xSemaphoreGive(lcdWrite);
-                    break;
-                }
-                readRotary(3);
-                if(digitalRead(ROTARY_SW_PIN) == LOW) {
-                    if(prevRow == 1) {
-                        subMenu(systemMenuList, "MENU > SYSTEM", 2);
-                        menuDepth++;
-                        while(1) {
-                            if(digitalRead(ESC_BTN_PIN) == LOW) {
-                                menuDepth--;
-                                break;
-                            };
-                            readRotary(2);
-                            if(prevRow == 1) {
-                                subMenu(["Automatic", "Manual"], "SYSTEM > MODE", 2);
-                                menuDepth++;
-                                while(1) {
-                                    readRotary();
-                                    if(digitalRead(ROTARY_SW_PIN == LOW)) {
-                                        settings.mode = (prevRow == 1) ? false: true;
-                                    }
-                                }
-                            }
-
-                        }
-                    } else if(prevRow = 2) {
-                        subMenu(TimeMenuList, "MENU > TIME", 2);
-                        menuDepth++;
-                        menu = prevRow;
-                    } else {
-                        subMenu(NetworkMenuList, "MENU > NETWORK", 2);
-                        menuDepth++;
-                        menu = prevRow;
-                    }
-                    while(1) {
-                        if(digitalRead(ESC_BTN_PIN) == LOW) break;
-
-                    }
-
-                }
-            }
-        }
     }
 }
 
@@ -342,7 +297,7 @@ void readRotary(uint8_t maxPoint) {
     clkLastState = clkState;
 }
 void loop() {}
-void WriteToLCD(uint8_t lvl, int voltage, uint8_t m, String date, String tim, uint8_t motor) {
+void WriteToLCD(uint8_t lvl, int voltage, uint8_t m, uint8_t motor) {
     //Line 1
     lcd.setCursor(0, 0);
     lcd.print("WLMS v2.0");
@@ -364,12 +319,13 @@ void WriteToLCD(uint8_t lvl, int voltage, uint8_t m, String date, String tim, ui
 
     //Line 4
     lcd.setCursor(0, 3);
-    lcd.print(date);
+    lcd.print(formatDate());
     lcd.setCursor(13, 3);
-    lcd.print(tim);
+    lcd.print(formatTime());
 }
 
 bool logData() {
+    dataFile = SD.open("datalog.csv", FILE_WRITE);
     if (dataFile) {
         dataFile.print(record.slNo);
         dataFile.print(",");
@@ -391,34 +347,28 @@ bool logData() {
 
 
 String formatTime() {
-    uint8_t hour = rtc.hour();
-    uint8_t minute = rtc.minute();
-    bool isPM = (rtc.hourModeAndAmPm() == 2) ? true: false;
+    DateTime now = rtc.now();
+    uint8_t hour = now.hour();
+    uint8_t minute = now.minute();
+    bool isPM = (hour> 12) ? true: false;
+    if(hour > 12) hour -= 12;
     char timeStr[8];
-
     snprintf(timeStr, sizeof(timeStr), "%02d:%02d%s", hour, minute, isPM ? "PM": "AM");
-    return timeStr;
+    return String(timeStr);
 }
 
-/*#include <LiquidCrystal_I2C.h>
-  LiquidCrystal_I2C lcd(0x27, 20, 4);
-  uint8_t prevRow = 1;
-  void setup() {
-    lcd.init();
-    MainMenu();
-    delay(1000);
-    moveCursor(2);
-    delay(1000);
-    moveCursor(3);
-    delay(1000);
-    moveCursor(2);
-    delay(1000);
-    moveCursor(1);
-  }*/
+String formatDate() {
+    DateTime now = rtc.now();
+    uint8_t day = now.day();
+    uint8_t month = now.month();
+    uint8_t year = now.year();
+    
+    char dateStr[9];
+    snprintf(timeStr, sizeof(timeStr), "%02d/%02d/%02d", day, month, year);
+    return String(dateStr);
+}
 
-void loop() {}
-
-
+/*
 void MainMenu() {
     lcd.setCursor(0, 0);
     lcd.print("MENU");
@@ -447,4 +397,4 @@ void moveCursor(uint8_t row) {
     lcd.setCursor(0, row);
     lcd.print(">");
     prevRow = row;
-}
+}*/
