@@ -6,9 +6,11 @@
 #include <RTClib.h>
 #include <LiquidCrystal_I2C.h>
 #include <SPI.h>
+#include <WebServer.h>
+#include <FS.h>
+#include <Update.h>
 #include <nRF24L01.h>
 #include <RF24.h>
-#include <HardwareSerial.h>
 #include <ZMPT101B.h>
 
 /* Declare Global Variables and GPIO pins */
@@ -25,10 +27,12 @@ const int ROTARY_DT_PIN = 3;
 const int ROTARY_SW_PIN = 3;
 
 bool motorStatus = false;
-bool mode = false;
 const byte RF_ADDR[] = "03152";
 uint8_t level = 0;
 float acVoltage = 0;
+unsigned long startTime;
+uint16_t elapsed = 0;
+uint8_t trig_rate = 0;
 uint8_t prevRow = 1;
 uint8_t count = 1;
 uint8_t clkState;
@@ -65,55 +69,15 @@ struct DataRecord {
     uint8_t remark;
 };
 
-byte ant[] = {
-    0x1f,
-    0x15,
-    0x0e,
-    0x04,
-    0x04,
-    0x04,
-    0x04,
-    0x04
-};
-byte sig1[] = {
+byte wifi[] = {
     0x00,
-    0x00,
-    0x01,
-    0x03,
-    0x05,
-    0x09,
+    0x0E,
     0x11,
-    0x1f
-};
-byte sig2[] = {
     0x00,
+    0x04,
+    0x0A,
     0x00,
-    0x01,
-    0x03,
-    0x05,
-    0x09,
-    0x19,
-    0x1f
-};
-byte sig3[] = {
-    0x00,
-    0x00,
-    0x01,
-    0x03,
-    0x05,
-    0x0d,
-    0x1d,
-    0x1f
-};
-byte sig4[] = {
-    0x00,
-    0x00,
-    0x01,
-    0x03,
-    0x07,
-    0x0f,
-    0x1f,
-    0x1f
+    0x04
 };
 
 
@@ -130,10 +94,9 @@ defaultSettings settings = {
 };
 RF24 radio(7, 8); // CE, CSN
 LiquidCrystal_I2C lcd(0x27, 20, 4);
-HardwareSerial gsm(2);
 ZMPT101B vSense(A0, 50.0);
+WebServer server(80);
 SemaphoreHandle_t lcdWrite;
-
 
 void beepBuzzer() {
     digitalWrite(BUZZER_PIN, HIGH);
@@ -142,9 +105,8 @@ void beepBuzzer() {
 }
 
 void setup() {
-    gsm.begin(9600); // Initialize gsm serial
     Serial.begin(115200);
-    lcd.init();
+    lcd.createChar(0, wifi);
     analogReadResolution(12);
     // Initialize GPIOs
     pinMode(AC_VOLTAGE_SENSOR_PIN, INPUT);
@@ -179,6 +141,19 @@ void setup() {
 
     vSense.setSensitivity(500.0);
     Serial.println("successful Initilized");
+    WiFi.softAP(ssid, password);
+    Serial.println("Access Point created");
+    Serial.print("IP address: ");
+    Serial.println(WiFi.softAPIP());
+
+    server.on("/", handleRoot);
+    server.on("/reqData", handleReqData);
+    server.on("/update", HTTP_GET, handleOTA); // OTA page
+    server.on("/upload", HTTP_POST, []() {
+        server.send(200, "text/plain", (Update.hasError()) ? "FAIL": "OK");
+        ESP.restart();
+    }, handleOTAUpdate);
+    server.begin();
 }
 
 void mainLoop(void *pvParameters) {
@@ -190,37 +165,59 @@ void mainLoop(void *pvParameters) {
         }
         acVoltage = vSense.getRmsVoltage(5);
         DateTime now = rtc.now();
-        if((level <= 15) && (acVoltage > 220) && (mode == false)) {
+        if((level <= 15) && (acVoltage > 220) && (settings.mode == false)) {
+            startTime = millis();
             digitalWrite(MOTOR_RELAY_PIN, HIGH);
             motorStatus = true;
             record.slNo += 1;
             record.onTime = now.unixtime();
             record.onWaterLvl = level;
             record.acVoltage = acVoltage;
-            record.modeState = mode;
+            record.modeState = settings.mode;
 
         }
         if(acVoltage < 220) {
             digitalWrite(MOTOR_RELAY_PIN, LOW);
-            record.offWaterLvl = level;
-            record.offTime = now.unixtime();
-            record.remark = 1;
-            vTaskDelay(pdMS_TO_TICKS(1));
-            logData();
+            if(xSemaphoreTake(dataRW, portMAX_DELAY) == pdTRUE) {
+                elapsed = millis() - startTime;
+                record.offWaterLvl = level;
+                record.offTime = now.unixtime();
+                record.remark = 1;
+                vTaskDelay(pdMS_TO_TICKS(1));
+                logData();
+                xSemaphoreGive(dataRW);
+            }
         }
 
         if(level > 99) {
             digitalWrite(MOTOR_RELAY_PIN, LOW);
-            record.offTime = now.unixtime();
-            record.remark = 0;
-            vTaskDelay(pdMS_TO_TICKS(1));
-            logData();
+            if(xSemaphoreTake(dataRW, portMAX_DELAY) == pdTRUE) {
+                elapsed millis() - startTime;
+                record.offTime = now.unixtime();
+                record.remark = 0;
+                vTaskDelay(pdMS_TO_TICKS(1));
+                logData();
+                xSemaphoreGive(dataRW);
+            }
         }
         if(xSemaphoreTake(lcdWrite, portMAX_DELAY) == pdTRUE) {
-            WriteToLCD(level, acVoltage, mode, dateNow, timeNow, motorStatus);
+            WriteToLCD(level, acVoltage, settings.mode, dateNow, timeNow, motorStatus);
             xSemaphoreGive(lcdWrite);
             vTaskDelay(pdMS_TO_TICKS(25));
         }
+    }
+}
+void webServerTask(void *pvParameters) {
+    while (true) {
+        server.handleClient();
+        vTaskDelay(1); // Yield to other tasks
+    }
+}
+
+void dataGenerationTask(void *pvParameters) {
+    while (true) {
+        count++;
+        vTaskDelay(5000 / portTICK_PERIOD_MS); // Increment count every 5 seconds
     }
 }
 
@@ -280,6 +277,55 @@ void menuPrint(void *pvParameters) {
     }
 }
 
+void handleRoot() {
+    File file = SD.open("/index.html");
+    if (!file) {
+        server.send(500, "text/plain", "File not found");
+        return;
+    }
+    server.streamFile(file, "text/html");
+    file.close();
+}
+
+void handleReqData() {
+    if(xSemaphoreTake(dataRW, portMAX_DELAY) == pdTRUE) {
+        String jsonData = "{\"motor_status\": " + String(motorStatus) + ", \"ctrl_mode\": " + String(settings.mode) + ", \"water_lvl\": " + String(level) + ", \"voltage\": " + String(acVoltage) + ", \"motor_ontime\": " + String(elapsed) + ", \"trig_rate\": " + String(trig_rate) + "}";
+        server.send(200, "application/json", jsonData);
+        xSemaphoreGive(dataRW);
+    }
+}
+
+void handleOTA() {
+    File file = SD.open("/update.html");
+    if (!file) {
+        server.send(500, "text/plain", "OTA page not found");
+        return;
+    }
+    server.streamFile(file, "text/html");
+    file.close();
+}
+
+void handleOTAUpdate() {
+    HTTPUpload& upload = server.upload();
+
+    if (upload.status == UPLOAD_FILE_START) {
+        Serial.printf("Update: %s\n", upload.filename.c_str());
+        if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
+            Update.printError(Serial);
+        }
+    } else if (upload.status == UPLOAD_FILE_WRITE) {
+        if (Update.write(upload.buf, upload.currentSize) != upload.currentSize) {
+            Update.printError(Serial);
+        }
+    } else if (upload.status == UPLOAD_FILE_END) {
+        if (Update.end(true)) {
+            Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
+        } else {
+            Update.printError(Serial);
+        }
+    }
+}
+
 void readRotary(uint8_t maxPoint) {
     clkState = digitalRead(ROTARY_CLK_PIN);
     if(clkState != clkLastState) {
@@ -296,15 +342,13 @@ void readRotary(uint8_t maxPoint) {
     clkLastState = clkState;
 }
 void loop() {}
-void WriteToLCD(uint8_t lvl, int voltage, uint8_t Mode, String date, String tim, uint8_t motor) {
-    uint8_t range = calcRSSI();
+void WriteToLCD(uint8_t lvl, int voltage, uint8_t m, String date, String tim, uint8_t motor) {
     //Line 1
     lcd.setCursor(0, 0);
     lcd.print("WLMS v2.0");
-    lcd.setCursor(17, 0);
-    lcd.print((Mode == 0) ? "M": "A");
-    lcd.write(1);
-    lcd.write(range);
+    lcd.setCursor(18, 0);
+    lcd.print((m == 0) ? "M": "A");
+    lcd.write(0);
 
     //Line 2
     lcd.setCursor(0, 1);
@@ -343,43 +387,6 @@ bool logData() {
         dataFile.close();
     }
     return false;
-}
-
-uint8_t calcRSSI() {
-    String resp = sendATCmd("AT+CSQ");
-    int rssiIndex = resp.indexOf("+CSQ:") + 6;
-    String rssiString = resp.substring(rssiIndex, resp.indexOf(',', rssiIndex));
-    int num = rssiString.toInt();
-    if (num >= 20 && num <= 30) {
-        return 5;
-    } else if (num >= 15 && num <= 19) {
-        return 4;
-    } else if (num >= 10 && num <= 14) {
-        return 3;
-    } else if (num >= 2 && num <= 9) {
-        return 2;
-    } else {
-        return 0;
-    }
-}
-
-void lcdCustomCharInit() {
-    lcd.createChar(1, ant);
-    lcd.createChar(2, sig1);
-    lcd.createChar(3, sig2);
-    lcd.createChar(4, sig3);
-    lcd.createChar(5, sig4);
-}
-
-String sendATCmd(String cmd) {
-    gsm.println(cmd);
-    vTaskDelay(pdMS_TO_TICKS(1000));
-    String response = "";
-    while (gsm.available()) {
-        char c = gsm.read();
-        response += c;
-    }
-    return response;
 }
 
 
