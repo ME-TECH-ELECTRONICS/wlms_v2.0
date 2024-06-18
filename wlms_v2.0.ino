@@ -44,11 +44,11 @@ struct DataRecord {
     uint8_t modeState;
     uint8_t remark;
 };
-const uint8_t L[3][20] = {
-    {4,2,4,4,4,2,4,2,4,4,4,2,3,2,3,2,4,2,3,3},
-    {4,2,4,2,4,2,4,2,4,4,4,2,4,2,4,2,4,2,1,1},
-    {4,2,4,2,4,2,4,2,4,4,4,2,4,2,4,2,4,4,4,2},
-    {4,2,1,2,1,2,4,2,1,1,4,2,4,4,4,2,4,1,1,2}
+const uint8_t L[4][21] = {
+  {4, 2, 4, 2, 4, 2, 4, 2, 4, 4, 4, 2, 3, 2, 3, 2, 4, 2, 3, 3},
+  {4, 2, 4, 2, 4, 2, 4, 2, 4, 4, 4, 2, 4, 2, 4, 2, 4, 2, 1, 1},
+  {4, 2, 4, 2, 4, 2, 4, 2, 4, 4, 4, 2, 4, 2, 4, 2, 4, 4, 4, 2},
+  {4, 2, 1, 2, 1, 2, 4, 2, 1, 1, 4, 2, 4, 2, 4, 2, 4, 1, 1, 2}
 };
 byte wifi[] = {
     0x00,
@@ -120,6 +120,10 @@ void mainLoop(void *pvParameters);
 void setup() {
     Serial.begin(115200);
     lcd.createChar(0, wifi);
+    lcd.createChar(1, btHalf);
+    lcd.createChar(2, full);
+    lcd.createChar(3, tpHalf);
+    lcd.createChar(4, blank);
     analogReadResolution(12);
 
     // Initialize GPIOs
@@ -164,6 +168,21 @@ void setup() {
     server.begin();
     Serial.println("Successfully Initialized");
     beepBuzzer();
+    for (int i = 0; i < 20; i++) {
+        for (int j = 0; j < 4; j++) {
+            lcd.setCursor(i,j);
+            lcd.write(L[j][i]);
+            delay(5);
+        }
+    }
+    delay(2500);
+    for(int x = 0; x < 20; x++) {
+        for(int y=0; y<4;y++) {
+            lcd.setCursor(x,y);
+            lcd.write(4);
+            delay(5);
+        }
+    }
 }
 
 void mainLoop(void *pvParameters) {
