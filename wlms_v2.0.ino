@@ -56,7 +56,6 @@ byte wifi[] = {
     0x04
 };
 
-
 File dataFile;
 RTC_DS1307 rtc;
 DataRecord record;
@@ -66,6 +65,10 @@ ZMPT101B vSense(A0, 50.0);
 WebServer server(80);
 SemaphoreHandle_t lcdWrite;
 SemaphoreHandle_t dataRW;
+
+void webServerTask(void *pvParameters);
+void handleBtn(void *pvParameters);
+void mainLoop(void *pvParameters);
 
 void setup() {
     Serial.begin(115200);
@@ -95,9 +98,10 @@ void setup() {
     radio.openReadingPipe(0, RF_ADDR);
     radio.setPALevel(RF24_PA_MIN);
     radio.startListening();
-
+    xTaskCreate(webServerTask, "WebServerTask", 8192, NULL, 1, NULL);
+    xTaskCreate(mainLoop, "mainLoop", 2048, NULL, 1, NULL);
+    xTaskCreate(handleBtn, "handleBtn", 1024, NULL, 1, NULL);
     vSense.setSensitivity(500.0);
-    Serial.println("Successfully Initialized");
     WiFi.softAP(ssid, password);
     Serial.println("Access Point created");
     Serial.print("IP address: ");
@@ -111,6 +115,8 @@ void setup() {
         ESP.restart();
     }, handleOTAUpdate);
     server.begin();
+    Serial.println("Successfully Initialized");
+    beepBuzzer();
 }
 
 void mainLoop(void *pvParameters) {
@@ -124,15 +130,15 @@ void mainLoop(void *pvParameters) {
         DateTime now = rtc.now();
         if((level <= 15) && (acVoltage > 220) && (mode == false)) {
             startTime = millis();
-            trig_rate++;
+            beepBuzzer();
             digitalWrite(MOTOR_RELAY_PIN, HIGH);
+            trig_rate++;
             motorStatus = true;
             record.slNo += 1;
             record.onTime = now.unixtime();
             record.onWaterLvl = level;
             record.acVoltage = acVoltage;
             record.modeState = mode;
-
         }
         if((level < 100) && (resumeOnACrestore == true) && (acVoltage > 220)) {
             resumeOnACrestore = false;
