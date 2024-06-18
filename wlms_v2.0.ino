@@ -31,7 +31,7 @@ float acVoltage = 0;
 unsigned long startTime;
 uint16_t elapsed = 0;
 uint8_t trig_rate = 0;
-const char *ssid = "WLMS";
+const char *ssid = "WLMS 2.0";
 const char *password = "wlms@1234"; 
 
 struct DataRecord {
@@ -44,7 +44,12 @@ struct DataRecord {
     uint8_t modeState;
     uint8_t remark;
 };
-
+const uint8_t L[3][20] = {
+    {4,2,4,4,4,2,4,2,4,4,4,2,3,2,3,2,4,2,3,3},
+    {4,2,4,2,4,2,4,2,4,4,4,2,4,2,4,2,4,2,1,1},
+    {4,2,4,2,4,2,4,2,4,4,4,2,4,2,4,2,4,4,4,2},
+    {4,2,1,2,1,2,4,2,1,1,4,2,4,4,4,2,4,1,1,2}
+};
 byte wifi[] = {
     0x00,
     0x0E,
@@ -54,6 +59,48 @@ byte wifi[] = {
     0x0A,
     0x00,
     0x04
+};
+
+byte full[] = {
+    0x1F,
+    0x1F,
+    0x1F,
+    0x1F,
+    0x1F,
+    0x1F,
+    0x1F,
+    0x1F
+};
+
+byte btHalf[] = {
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x1F,
+    0x1F,
+    0x1F,
+    0x1F
+};
+byte tpHalf[] = {
+    0x1F,
+    0x1F,
+    0x1F,
+    0x1F,
+    0x00,
+    0x00,
+    0x00,
+    0x00
+};
+byte blank[] = {
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00,
+    0x00
 };
 
 File dataFile;
@@ -152,15 +199,10 @@ void mainLoop(void *pvParameters) {
             record.onTime = now.unixtime();
         }
         if(acVoltage < 220) {
-            digitalWrite(MOTOR_RELAY_PIN, LOW);
             if(xSemaphoreTake(dataRW, portMAX_DELAY) == pdTRUE) {
                 elapsed = millis() - startTime;
                 resumeOnACrestore = true;
-                record.offWaterLvl = level;
-                record.offTime = now.unixtime();
-                record.remark = 1;
-                vTaskDelay(pdMS_TO_TICKS(1));
-                logData();
+                motorCtrl_Logging();
                 xSemaphoreGive(dataRW);
             }
         }
@@ -169,10 +211,7 @@ void mainLoop(void *pvParameters) {
             digitalWrite(MOTOR_RELAY_PIN, LOW);
             if(xSemaphoreTake(dataRW, portMAX_DELAY) == pdTRUE) {
                 elapsed = millis() - startTime;
-                record.offTime = now.unixtime();
-                record.remark = 0;
-                vTaskDelay(pdMS_TO_TICKS(1));
-                logData();
+                motorCtrl_Logging();
                 xSemaphoreGive(dataRW);
             }
         }
@@ -262,6 +301,14 @@ void handleOTAUpdate() {
 
 
 void loop() {}
+void motorCtrl_Logging(uint8_t remark, Date) {
+    digitalWrite(MOTOR_RELAY_PIN, LOW);
+    record.offWaterLvl = level;
+    record.offTime = utime;
+    record.remark = remark;
+    vTaskDelay(pdMS_TO_TICKS(1));
+    logData();
+}
 void WriteToLCD(uint8_t lvl, int voltage, uint8_t m, uint8_t motor) {
     //Line 1
     lcd.setCursor(0, 0);
