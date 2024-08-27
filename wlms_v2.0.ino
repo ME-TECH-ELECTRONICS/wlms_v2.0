@@ -32,7 +32,7 @@ unsigned long startTime;
 uint16_t elapsed = 0;
 uint8_t trig_rate = 0;
 const char *ssid = "WLMS 2.0";
-const char *password = "wlms@1234"; 
+const char *password = "wlms@1234";
 
 struct DataRecord {
     uint16_t slNo;
@@ -45,10 +45,94 @@ struct DataRecord {
     uint8_t remark;
 };
 const uint8_t L[4][21] = {
-  {4, 2, 4, 2, 4, 2, 4, 2, 4, 4, 4, 2, 3, 2, 3, 2, 4, 2, 3, 3},
-  {4, 2, 4, 2, 4, 2, 4, 2, 4, 4, 4, 2, 4, 2, 4, 2, 4, 2, 1, 1},
-  {4, 2, 4, 2, 4, 2, 4, 2, 4, 4, 4, 2, 4, 2, 4, 2, 4, 4, 4, 2},
-  {4, 2, 1, 2, 1, 2, 4, 2, 1, 1, 4, 2, 4, 2, 4, 2, 4, 1, 1, 2}
+    {
+        4,
+        2,
+        4,
+        2,
+        4,
+        2,
+        4,
+        2,
+        4,
+        4,
+        4,
+        2,
+        3,
+        2,
+        3,
+        2,
+        4,
+        2,
+        3,
+        3
+    },
+    {
+        4,
+        2,
+        4,
+        2,
+        4,
+        2,
+        4,
+        2,
+        4,
+        4,
+        4,
+        2,
+        4,
+        2,
+        4,
+        2,
+        4,
+        2,
+        1,
+        1
+    },
+    {
+        4,
+        2,
+        4,
+        2,
+        4,
+        2,
+        4,
+        2,
+        4,
+        4,
+        4,
+        2,
+        4,
+        2,
+        4,
+        2,
+        4,
+        4,
+        4,
+        2
+    },
+    {
+        4,
+        2,
+        1,
+        2,
+        1,
+        2,
+        4,
+        2,
+        1,
+        1,
+        4,
+        2,
+        4,
+        2,
+        4,
+        2,
+        4,
+        1,
+        1,
+        2
+    }
 };
 byte wifi[] = {
     0x00,
@@ -105,10 +189,10 @@ byte blank[] = {
 
 File dataFile;
 RTC_DS1307 rtc;
-DataRecord record;
+DataRecord record = {0, 0, 0, 0, 0, 0, 0, 0};
 RF24 radio(7, RF_CS_PIN); // CE, CSN
 LiquidCrystal_I2C lcd(0x27, 20, 4);
-ZMPT101B vSense(A0, 50.0);
+ZMPT101B vSense(AC_VOLTAGE_SENSOR_PIN, 50.0);
 WebServer server(80);
 SemaphoreHandle_t lcdWrite;
 SemaphoreHandle_t dataRW;
@@ -127,12 +211,11 @@ void setup() {
     analogReadResolution(12);
 
     // Initialize GPIOs
-    initializePins()
+    initializePins();
 
     lcdWrite = xSemaphoreCreateMutex();
     dataRW = xSemaphoreCreateMutex();
 
-    clkLastState = digitalRead(ROTARY_CLK_PIN);
     if (!SD.begin(SD_CS_PIN)) {
         Serial.println("Initialization failed!");
         while (1);
@@ -170,15 +253,15 @@ void setup() {
     beepBuzzer();
     for (int i = 0; i < 20; i++) {
         for (int j = 0; j < 4; j++) {
-            lcd.setCursor(i,j);
+            lcd.setCursor(i, j);
             lcd.write(L[j][i]);
             delay(5);
         }
     }
     delay(2500);
     for(int x = 0; x < 20; x++) {
-        for(int y=0; y<4;y++) {
-            lcd.setCursor(x,y);
+        for(int y = 0; y < 4; y++) {
+            lcd.setCursor(x, y);
             lcd.write(4);
             delay(5);
         }
@@ -221,7 +304,7 @@ void mainLoop(void *pvParameters) {
             if(xSemaphoreTake(dataRW, portMAX_DELAY) == pdTRUE) {
                 elapsed = millis() - startTime;
                 resumeOnACrestore = true;
-                motorCtrl_Logging();
+                motorCtrl_Logging(1);
                 xSemaphoreGive(dataRW);
             }
         }
@@ -230,7 +313,7 @@ void mainLoop(void *pvParameters) {
             digitalWrite(MOTOR_RELAY_PIN, LOW);
             if(xSemaphoreTake(dataRW, portMAX_DELAY) == pdTRUE) {
                 elapsed = millis() - startTime;
-                motorCtrl_Logging();
+                motorCtrl_Logging(0);
                 xSemaphoreGive(dataRW);
             }
         }
@@ -239,10 +322,13 @@ void mainLoop(void *pvParameters) {
     }
 }
 void handleBtn(void *pvParameters) {
-    if(digitalRead(MANUAL_START_BTN) == LOW) {
-        vTaskDelay(pdMS_TO_TICKS(20));
-        motorStatus = !motorStatus;
-        digitalWrite(MOTOR_RELAY_PIN, motorStatus ? HIGH : LOW);
+    while(1) {
+        if(digitalRead(MANUAL_START_BTN) == LOW) {
+            vTaskDelay(pdMS_TO_TICKS(20));
+            motorStatus = !motorStatus;
+            digitalWrite(MOTOR_RELAY_PIN, motorStatus ? HIGH: LOW);
+        }
+        vTaskDelay(pdMS_TO_TICKS(1));
     }
 }
 void webServerTask(void *pvParameters) {
@@ -253,11 +339,19 @@ void webServerTask(void *pvParameters) {
 }
 
 void initializePins() {
-    int inputPins[] = {AC_VOLTAGE_SENSOR_PIN, MANUAL_START_BTN, ROTARY_SW_PIN};
+    int inputPins[] = {
+        AC_VOLTAGE_SENSOR_PIN,
+        MANUAL_START_BTN,
+        ROTARY_SW_PIN
+    };
     for (int i = 0; i < 3; i++) {
         pinMode(inputPins[i], INPUT);
     }
-    int outputPins[] = {MOTOR_RELAY_PIN, AUTO_MODE_LED_PIN, BUZZER_PIN};
+    int outputPins[] = {
+        MOTOR_RELAY_PIN,
+        AUTO_MODE_LED_PIN,
+        BUZZER_PIN
+    };
     for (int i = 0; i < 3; i++) {
         pinMode(outputPins[i], OUTPUT);
     }
@@ -320,20 +414,22 @@ void handleOTAUpdate() {
 
 
 void loop() {}
-void motorCtrl_Logging(uint8_t remark, Date) {
+void motorCtrl_Logging(uint8_t remark) {
+    DateTime now = rtc.now();
     digitalWrite(MOTOR_RELAY_PIN, LOW);
     record.offWaterLvl = level;
-    record.offTime = utime;
+    record.offTime = now.unixtime();
     record.remark = remark;
     vTaskDelay(pdMS_TO_TICKS(1));
     logData();
 }
 void WriteToLCD(uint8_t lvl, int voltage, uint8_t m, uint8_t motor) {
+    DateTime now = rtc.now();
     //Line 1
     lcd.setCursor(0, 0);
     lcd.print("WLMS v2.0");
     lcd.setCursor(18, 0);
-    lcd.print((m == 0) ? "M" : "A");
+    lcd.print((m == 0) ? "M": "A");
     lcd.write(0);
 
     //Line 2
@@ -341,7 +437,7 @@ void WriteToLCD(uint8_t lvl, int voltage, uint8_t m, uint8_t motor) {
     lcd.print("LVL: ");
     lcd.print(lvl);
     lcd.print("%  MOTOR ");
-    lcd.print((motor == false) ? "OFF" : "ON");
+    lcd.print((motor == false) ? "OFF": "ON");
 
     //Line 3
     lcd.setCursor(0, 2);
@@ -350,12 +446,12 @@ void WriteToLCD(uint8_t lvl, int voltage, uint8_t m, uint8_t motor) {
 
     //Line 4
     lcd.setCursor(0, 3);
-    lcd.print(formatDate());
+    lcd.print(formatDate(now));
     lcd.setCursor(13, 3);
-    lcd.print(formatTime());
+    lcd.print(formatTime(now));
 }
 
-bool logData() {
+void logData() {
     dataFile = SD.open("datalog.csv", FILE_WRITE);
     if (dataFile) {
         dataFile.print(record.slNo);
@@ -375,27 +471,24 @@ bool logData() {
         dataFile.println(record.remark);
         dataFile.close();
     }
-    return false;
 }
 
 
-String formatTime() {
-    DateTime now = rtc.now();
+String formatTime(DateTime now) {
     uint8_t hour = now.hour();
     uint8_t minute = now.minute();
-    bool isPM = (hour > 12) ? true : false;
+    bool isPM = (hour > 12) ? true: false;
     if(hour > 12) hour -= 12;
     char timeStr[11];
-    snprintf(timeStr, sizeof(timeStr), "%02d:%02d%s", hour, minute, isPM ? "PM" : "AM");
+    snprintf(timeStr, sizeof(timeStr), "%02d:%02d%s", hour, minute, isPM ? "PM": "AM");
     return String(timeStr);
 }
 
-String formatDate() {
-    DateTime now = rtc.now();
+String formatDate(DateTime now) {
     uint8_t day = now.day();
     uint8_t month = now.month();
     uint8_t year = now.year();
     char dateStr[16];
-    snprintf(dateStr, sizeof(dateStr), "%02d/%02d/%02d", day, month, year);
+    snprintf(dateStr, sizeof(dateStr), "%02d/%02d/%02d", day, month, year % 100);
     return String(dateStr);
 }
