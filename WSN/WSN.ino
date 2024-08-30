@@ -1,16 +1,18 @@
 #include <SPI.h>
 #include <RF24.h>
 
-
 const int trigPin = 0;
 const int echoPin = 1;
-const byte address[6] = "00001";
+const byte address[6] = "03152";
+unsigned long prevTime;
+int dist = 0;
 
 struct DataPacket {
-  int integerValue;
-  float floatValue;
+  int distance;
+  //float temp;
 };
 
+DataPacket data;
 RF24 radio(9, 10); // CE, CSN
 
 void setup() {
@@ -23,7 +25,13 @@ void setup() {
 }
 
 void loop() {
-    radio.write(&data, sizeof(data));
+    for (int i = 0; i < 5; i++) {
+        dist += getDistance();
+    }
+    data.distance = dist/5;
+    if((millis() - prevTime) >= 15000) {
+        radio.write(&data, sizeof(data));
+    }
 }
 
 int getDistance() {
@@ -34,4 +42,8 @@ int getDistance() {
   digitalWrite(trigPin, LOW);
   long duration = pulseIn(echoPin, HIGH);
   return (duration * 0.034 / 2) + 2;
+}
+
+float getTemperature() {
+    
 }

@@ -26,13 +26,15 @@ bool motorStatus = false;
 bool mode = false;
 bool resumeOnACrestore = false;
 const byte RF_ADDR[] = "03152";
-uint8_t level = 0;
+
+uint8_t level = 0; //thus vayiable need to be changed with struct
+
 float acVoltage = 0;
 unsigned long startTime;
 uint16_t elapsed = 0;
 uint8_t trig_rate = 0;
 const char *ssid = "WLMS 2.0";
-const char *password = "wlms@1234";
+const char *password = "wlms@2024";
 
 struct DataRecord {
     uint16_t slNo;
@@ -44,6 +46,11 @@ struct DataRecord {
     uint8_t modeState;
     uint8_t remark;
 };
+
+struct RxData {
+    int distance;
+};
+
 const uint8_t L[4][21] = {
     {
         4,
@@ -189,7 +196,17 @@ byte blank[] = {
 
 File dataFile;
 RTC_DS1307 rtc;
-DataRecord record = {0, 0, 0, 0, 0, 0, 0, 0};
+DataRecord record = {
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+};
+RxData data;
 RF24 radio(7, RF_CS_PIN); // CE, CSN
 LiquidCrystal_I2C lcd(0x27, 20, 4);
 ZMPT101B vSense(AC_VOLTAGE_SENSOR_PIN, 50.0);
@@ -272,8 +289,7 @@ void mainLoop(void *pvParameters) {
     uint8_t pipe;
     while(1) {
         if (radio.available(&pipe)) {
-            uint8_t bytes = radio.getPayloadSize();
-            radio.read(&level, bytes);
+            radio.read(&data, sizeof(data));
         }
         acVoltage = vSense.getRmsVoltage(5);
         DateTime now = rtc.now();
