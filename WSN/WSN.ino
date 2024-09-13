@@ -16,22 +16,22 @@ DataPacket data;
 RF24 radio(9, 10); // CE, CSN
 
 void setup() {
-    pinMode(trigPin, OUTPUT);
-    pinMode(echoPin, INPUT);
-    radio.begin();
-    radio.openWritingPipe(address);
-    radio.setPALevel(RF24_PA_MIN);
-    radio.stopListening();
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+  radio.begin();
+  radio.openWritingPipe(address);
+  radio.setPALevel(RF24_PA_MIN);
+  radio.stopListening();
 }
 
 void loop() {
-    for (int i = 0; i < 5; i++) {
-        dist += getDistance();
-    }
-    data.distance = dist/5;
-    if((millis() - prevTime) >= 15000) {
-        radio.write(&data, sizeof(data));
-    }
+  for (int i = 0; i < 5; i++) {
+      dist += getDistance();
+  }
+  data.distance = dist/5;
+  if((millis() - prevTime) >= 15000) {
+      radio.write(&data, sizeof(data));
+  }
 }
 
 int getDistance() {
