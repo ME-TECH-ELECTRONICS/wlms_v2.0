@@ -1,68 +1,46 @@
 #include <SPI.h>
 #include <LoRa.h>
 
-//define the pins used by the transceiver module
+// define the pins used by the transceiver module
 #define ss 10
 #define rst 9
 #define dio0 2
 
-int counter = 0;
+// Structure to hold the distance
 struct RxData {
-    int distance;
+  int distance;
 };
- RxData data;
-int distance;
-void setup() {
-  //initialize Serial Monitor
-  Serial.begin(115200);
-  while (!Serial);
-  Serial.println("LoRa Sender");
+RxData data;
 
-  //setup LoRa transceiver module
+void setup() {
+  Serial.begin(115200);
+  while (!Serial)
+    ;
+  Serial.println("LoRa Sender");
   LoRa.setPins(ss, rst, dio0);
-  
-  //replace the LoRa.begin(---E-) argument with your location's frequency 
-  //433E6 for Asia
-  //868E6 for Europe
-  //915E6 for North America
   while (!LoRa.begin(433E6)) {
     Serial.println(".");
     delay(500);
   }
-   // Change sync word (0xF3) to match the receiver
-  // The sync word assures you don't get LoRa messages from other LoRa transceivers
-  // ranges from 0-0xFF
   LoRa.setSyncWord(0xF3);
   Serial.println("LoRa Initializing OK!");
 }
 
 void loop() {
+  // Check if new data is available on Serial
   if (Serial.available() > 0) {
-    // RxData data;
-    
-    // Read the user input as an integer
-    distance = Serial.parseInt();
-    
-    // Begin packet
-    
-
-    // Serial.print("Transmitted distance: ");
-    // Serial.println(data.distance);
-
-    // Serial.println("Enter the distance value:");
+    data.distance = Serial.parseInt();
+    Serial.print("New distance entered: ");
+    Serial.println(data.distance);
+    while (Serial.available()) {
+      Serial.read();
+    }
   }
-data.distance = distance;
   LoRa.beginPacket();
-  LoRa.write(distance);
-    // Transmit data as bytes
-    // LoRa.write((uint8_t*)&data, sizeof(data));
-
-    // End packet
-    LoRa.endPacket();
-
-    delay(1000);
+  LoRa.write((uint8_t*)&data, sizeof(data));
+  LoRa.endPacket();
+  delay(1000);  // Send every second
 }
-
 
 
 /*#include <SPI.h>
