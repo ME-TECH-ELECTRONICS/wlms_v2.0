@@ -22,5 +22,5 @@ void loop()
   GPIO.out_w1tc = (1 << LED_PIN);
   delay(500);
 
-  pinMode()
+  gpio_mode()
 }
