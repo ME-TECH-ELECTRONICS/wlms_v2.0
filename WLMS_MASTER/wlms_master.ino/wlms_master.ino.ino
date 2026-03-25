@@ -63,6 +63,7 @@ void control_task(void *pv) {
 
 void updateDisplay() {
     display.clearDisplay();
+    //Water level indictor
     display.drawRect(108, 4, 20, 60, 1);
     display.drawLine(108, 58, 110, 58, 1);
     display.drawLine(108, 52, 110, 52, 1);
@@ -81,17 +82,22 @@ void updateDisplay() {
     display.setCursor(5, 15);
     display.setTextSize(2);
     display.print("100%");
+    display.drawLine(3, 31, 55, 31, 1);
 
     display.setTextSize(1);
     display.setCursor(60, 34);
     display.print("Voltage");
     display.setCursor(60, 44);
     display.print("230V");
+    display.drawLine(55, 35, 55, 50, 1);
+
+    display.setCursor(8, 34);
+    display.print("Volume");
     display.setCursor(8, 44);
     display.print("1000L");
-    display.setCursor(10, 56);
-    display.setTextSize(1);
-    display.print("12/12/25 12:25");
+    display.drawLine(3, 53, 100, 53, 1);
+
+    // Status icons
     display.drawRect(60, 5, 45, 25, 1);
     display.drawCircle(72, 17, 7, 1);
     display.setCursor(70, 14);
@@ -100,17 +106,11 @@ void updateDisplay() {
     display.setCursor(88, 14);
     display.setTextSize(2);
     display.print("~");
-    display.setCursor(3, 3);
-    display.setTextSize(1);
-    display.print("Water LvL");
-    display.setCursor(8, 34);
-    display.setTextSize(1);
-    display.print("Volume");
     
-    display.setCursor(0, 0);
-    display.drawLine(3, 31, 55, 31, 1);
-    display.drawLine(55, 35, 55, 50, 1);
-    display.drawLine(3, 53, 100, 53, 1);
+    display.setCursor(10, 56);
+    display.setTextSize(1);
+    display.print("12/12/25 12:25");
+    
     display.fillRect(109, 58, 20, 6, 1);
     
     display.display();
