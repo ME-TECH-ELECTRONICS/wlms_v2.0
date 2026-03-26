@@ -1,0 +1,37 @@
+#pragma once
+
+#include <Arduino.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/semphr.h>
+#include <freertos/queue.h>
+
+#include "config.h"
+
+struct SystemState {
+    uint8_t level;
+    uint16_t voltage;
+    bool motor;
+    bool isDay;
+
+    Mode mode;
+    State state;
+
+    int start_th;
+    int stop_th;
+
+    uint32_t motorStartTime;
+    uint32_t lastLevelUpdate;
+
+    bool fault;
+
+    uint32_t dryRunLockUntil;
+    uint32_t lastDryCheckTime;
+    uint8_t lastDryCheckLevel;
+    uint8_t dryRunRetries;
+    uint32_t lastRetryTime;
+};
+
+// 🔥 ONLY DECLARE here (no memory allocation)
+extern SystemState sys;
+extern SemaphoreHandle_t sysMutex;
+extern QueueHandle_t logQueue;
