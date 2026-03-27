@@ -1,9 +1,13 @@
+#include <WiFi.h>
+
 #include "config.h"
 #include "system.h"
 #include "fsm_controller.h"
 #include "display.h"
+#include "web_dash.h"
 
 void setup() {
+    Serial.begin(115200);
     pinMode(MODE_BTN, INPUT_PULLUP);
     pinMode(MANUAL_BTN, INPUT_PULLUP);
     pinMode(MOTOR, OUTPUT);
@@ -29,11 +33,22 @@ void setup() {
     sys.lastDryCheckLevel = sys.level;
     sys.dryRunRetries = 0;
     sys.lastLevelUpdate = now;
-
     initDisplay();
     welcomeScreen();
     delay(3000);
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(ACCESS_POINT_SSID, ACCESS_POINT_PASSWORD);
+     Serial.print("Connecting to WiFi");
+    while (WiFi.status() != WL_CONNECTED) {
+        delay(500);
+        Serial.print(".");
+    }
+     Serial.print("Connecting to WiFi");
+    
+    web_dash_init();
 
+    Serial.println("Web Dashboard is ready!");
+    Serial.println("Open: http://" + WiFi.localIP().toString());
     sysMutex = xSemaphoreCreateMutex();
     // logQueue = xQueueCreate(10, sizeof(LogMsg));
 
