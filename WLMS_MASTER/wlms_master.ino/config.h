@@ -1,6 +1,8 @@
 #include <stdint.h>
 #pragma once
 
+constexpr char* VERSION = "1.0.0"
+
 // Pins
 constexpr uint8_t MOTOR = 15;
 constexpr uint8_t MOTOR_STATUS_LED = 33;

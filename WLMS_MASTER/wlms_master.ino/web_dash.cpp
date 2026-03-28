@@ -9,114 +9,178 @@ extern "C" {
 #include <ESPAsyncWebServer.h>
 #include <Update.h>
 #include "mbedtls/base64.h"     // For decoding Basic Auth
-#include "mbedtls/md.h"  // For SHA256
+#include "mbedtls/sha256.h"
 #include "index.html.h"
 #include "config.h"
 
-struct TempKey {
-  String key;
-  unsigned long expiry; // millis() when it expires
-};
-TempKey activeKey;
-
 static AsyncWebServer server(80);
 
-static volatile size_t ota_received = 0;
-static volatile size_t ota_total = 0;
-static volatile bool ota_success = false;
+// ================= GLOBAL =================
+File otaFile;
+String metadataStr = "";
+String signatureStr = "";
 
-static String ota_log = "";
+// ================= SHA256 =================
+String sha256File(const char* path) {
+  File file = SPIFFS.open(path, FILE_READ);
+  if (!file) return "";
 
-String sha256(String input) {
-  unsigned char hash[32];
-  mbedtls_md_context_t ctx;
-  mbedtls_md_type_t md_type = MBEDTLS_MD_SHA256;
-  mbedtls_md_init(&ctx);
-  mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(md_type), 0);
-  mbedtls_md_starts(&ctx);
-  mbedtls_md_update(&ctx, (const unsigned char*)input.c_str(), input.length());
-  mbedtls_md_finish(&ctx, hash);
-  mbedtls_md_free(&ctx);
+  mbedtls_sha256_context ctx;
+  mbedtls_sha256_init(&ctx);
+  mbedtls_sha256_starts(&ctx, 0);
 
-  char buf[65];
-  for (int i = 0; i < 32; i++) sprintf(buf + i * 2, "%02x", hash[i]);
-  buf[64] = 0;
-  return String(buf);
+  uint8_t buf[1024];
+  while (file.available()) {
+    size_t len = file.read(buf, sizeof(buf));
+    mbedtls_sha256_update(&ctx, buf, len);
+  }
+
+  uint8_t hash[32];
+  mbedtls_sha256_finish(&ctx, hash);
+  mbedtls_sha256_free(&ctx);
+  file.close();
+
+  char out[65];
+  for (int i = 0; i < 32; i++) sprintf(out + i * 2, "%02x", hash[i]);
+  out[64] = 0;
+
+  return String(out);
 }
 
-String base64Decode(String input) {
-    size_t len = input.length();
-    size_t outputLen = 0;
-    unsigned char decoded[len];
-    mbedtls_base64_decode(decoded, len, &outputLen,
-                          (const unsigned char*)input.c_str(), len);
-    return String((char*)decoded).substring(0, outputLen);
+// ================= SIGNATURE VERIFY =================
+bool verifySignature(const String& metadata, const String& sig_b64) {
+  uint8_t sig[128];
+  size_t sig_len;
+
+  if (mbedtls_base64_decode(sig, sizeof(sig), &sig_len,
+      (const unsigned char*)sig_b64.c_str(), sig_b64.length()) != 0)
+    return false;
+
+  uint8_t hash[32];
+  mbedtls_sha256((const unsigned char*)metadata.c_str(), metadata.length(), hash, 0);
+
+  mbedtls_pk_context pk;
+  mbedtls_pk_init(&pk);
+
+  if (mbedtls_pk_parse_public_key(&pk,
+      (const unsigned char*)PUBLIC_KEY,
+      strlen(PUBLIC_KEY) + 1) != 0) {
+    mbedtls_pk_free(&pk);
+    return false;
+  }
+
+  int ret = mbedtls_pk_verify(&pk, MBEDTLS_MD_SHA256, hash, 0, sig, sig_len);
+
+  mbedtls_pk_free(&pk);
+  return (ret == 0);
 }
 
-bool checkAuth(AsyncWebServerRequest *request) {
-  if (!request->hasHeader("Authorization")) return false;
-  const AsyncWebHeader* h = request->getHeader("Authorization");
-  String auth = h->value(); // e.g., "Basic xxxx"
-  if (!auth.startsWith("Basic ")) return false;
-  String encoded = auth.substring(6);
-  String decoded = base64Decode(encoded); // user:pass
-  Serial.println(encoded);
-  Serial.println(decoded);
-  int sep = decoded.indexOf(':');
-  if (sep < 0) return false;
-  String user = decoded.substring(0, sep);
-  String pass = decoded.substring(sep + 1);
-  return (user == WEB_DASH_USERNAME && pass == WEB_DASH_PASSWORD);
+// ================= OTA UPLOAD =================
+void handleUpload(AsyncWebServerRequest *request,
+                  String filename,
+                  size_t index,
+                  uint8_t *data,
+                  size_t len,
+                  bool final) {
+
+  if (index == 0) {
+    Serial.println("Upload Start");
+
+    if (SPIFFS.exists("/update.bin"))
+      SPIFFS.remove("/update.bin");
+
+    otaFile = SPIFFS.open("/update.bin", FILE_WRITE);
+  }
+
+  if (otaFile) otaFile.write(data, len);
+
+  if (final) {
+    if (otaFile) otaFile.close();
+    Serial.println("Upload Complete (SPIFFS)");
+  }
 }
 
-// ---------------- Generate Key ----------------
-void handleGenerateKey(AsyncWebServerRequest *request) {
-  if (!checkAuth(request)) {
-    request->requestAuthentication();
+// ================= FLASH =================
+bool flashFromSPIFFS() {
+  File file = SPIFFS.open("/update.bin");
+  if (!file) return false;
+
+  if (!Update.begin(file.size())) {
+    file.close();
+    return false;
+  }
+
+  uint8_t buf[1024];
+  while (file.available()) {
+    size_t len = file.read(buf, sizeof(buf));
+    if (Update.write(buf, len) != len) {
+      file.close();
+      return false;
+    }
+  }
+
+  file.close();
+
+  if (!Update.end(true)) return false;
+
+  return true;
+}
+
+// ================= UPDATE HANDLER =================
+void handleUpdate(AsyncWebServerRequest *request) {
+
+  if (!request->hasParam("metadata", true) ||
+      !request->hasParam("signature", true)) {
+    request->send(400, "application/json", "{\"success\":false,\"message\":\"Missing metadata/signature\"}");
     return;
   }
-  unsigned long now = millis();
-  unsigned long expiry = now + 3600UL * 1000UL; // 1 hour
-  String raw = String(WEB_DASH_USERNAME) + WEB_DASH_PASSWORD + WEB_DASH_SECRET + String(expiry);
-  String key = sha256(raw);
 
-  activeKey.key = key;
-  activeKey.expiry = expiry;
+  metadataStr = request->getParam("metadata", true)->value();
+  signatureStr = request->getParam("signature", true)->value();
 
-  String json = "{\"key\":\"" + key + "\",\"expiry\":" + String(expiry) + "}";
-  request->send(200, "application/json", json);
-}
-
-// ---------------- Validate Key ----------------
-bool validateKey(String key) {
-  unsigned long now = millis();
-  return (key == activeKey.key && now < activeKey.expiry);
-}
-
-// ---------------- OTA Page ----------------
-void handleUpdaterPage(AsyncWebServerRequest *request) {
-  if (!checkAuth(request)) {
-    request->requestAuthentication();
+  // 🔐 Verify signature
+  if (!verifySignature(metadataStr, signatureStr)) {
+    request->send(403, "application/json", "{\"success\":false,\"message\":\"Invalid signature\"}");
+    SPIFFS.remove("/update.bin");
     return;
   }
-  request->send(200, "text/html", page);
+
+  // 🔴 TEMP: metadata = hash
+  String expectedHash = metadataStr;
+
+  String actualHash = sha256File("/update.bin");
+
+  Serial.println("Expected: " + expectedHash);
+  Serial.println("Actual:   " + actualHash);
+
+  if (expectedHash != actualHash) {
+    request->send(403, "application/json", "{\"success\":false,\"message\":\"Hash mismatch\"}");
+    SPIFFS.remove("/update.bin");
+    return;
+  }
+
+  // 🚀 Flash
+  if (!flashFromSPIFFS()) {
+    request->send(500, "application/json", "{\"success\":false,\"message\":\"Flashing failed\"}");
+    SPIFFS.remove("/update.bin");
+    return;
+  }
+
+  SPIFFS.remove("/update.bin");
+
+  request->send(200, "application/json", "{\"success\":true,\"message\":\"Update OK, rebooting...\"}");
+  delay(1000);
+  ESP.restart();
 }
 
 void handleStatusRequest(AsyncWebServerRequest *request) {
-  if (!request->hasParam("key")) { 
-    request->send(403, "application/json", "{\"error\":\"missing_key\"}"); 
-    return; 
-  }
   String key = request->getParam("key")->value();
   if (!validateKey(key)) { 
     request->send(403, "application/json", "{\"error\":\"invalid_key\"}"); 
     return; 
   }
   char json[128];
-  snprintf(json, sizeof(json),
-         "{\"wifi\":\"%s\",\"heap\":%u,\"version\":\"1.0.0\"}",
-         WiFi.SSID().c_str(),
-         ESP.getFreeHeap());
+  snprintf(json, sizeof(json), "{\"heap\":%u,\"version\":\"%s\"}", ESP.getFreeHeap(), VERSION.c_str());
   request->send(200, "application/json", json);
 }
 
