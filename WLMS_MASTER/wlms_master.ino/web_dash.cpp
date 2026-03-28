@@ -174,11 +174,6 @@ void handleUpdate(AsyncWebServerRequest *request) {
 }
 
 void handleStatusRequest(AsyncWebServerRequest *request) {
-  String key = request->getParam("key")->value();
-  if (!validateKey(key)) { 
-    request->send(403, "application/json", "{\"error\":\"invalid_key\"}"); 
-    return; 
-  }
   char json[128];
   snprintf(json, sizeof(json), "{\"heap\":%u,\"version\":\"%s\"}", ESP.getFreeHeap(), VERSION.c_str());
   request->send(200, "application/json", json);
@@ -241,7 +236,7 @@ void web_dash_init() {
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(200, "text/html", "<h1>Web Dashboard</h1><br><p>Work in progress......</p>");
   });
-  server.on("/updater", HTTP_GET, handleUpdaterPage);
+  server.on("/update", HTTP_GET, handleUpdate);
   server.on("/status", HTTP_GET, handleStatusRequest);
 
   // server.on(
