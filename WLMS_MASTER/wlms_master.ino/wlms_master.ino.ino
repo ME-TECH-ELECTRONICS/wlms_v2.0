@@ -1,10 +1,11 @@
 #include <WiFi.h>
-
+#include "SPIFFS.h"
 #include "config.h"
 #include "system.h"
 #include "fsm_controller.h"
 #include "display.h"
 #include "web_dash.h"
+#define FORMAT_SPIFFS_IF_FAILED true
 
 void setup() {
     Serial.begin(115200);
@@ -44,11 +45,15 @@ void setup() {
         Serial.print(".");
     }
      Serial.print("Connecting to WiFi");
-    
+    if (!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED)) {
+        Serial.println("SPIFFS Mount Failed");
+        return;
+    }
     web_dash_init();
 
     Serial.println("Web Dashboard is ready!");
     Serial.println("Open: http://" + WiFi.localIP().toString());
+    Serial.print(VERSION);
     sysMutex = xSemaphoreCreateMutex();
     // logQueue = xQueueCreate(10, sizeof(LogMsg));
 
@@ -56,7 +61,21 @@ void setup() {
 }
 
 void loop() {
+    if (otaReady) {
+    otaReady = false;
 
+    Serial.println("🚀 OTA FLASH START");
+
+    if (flashFromSPIFFS()) {
+      Serial.println("✅ OTA DONE");
+      delay(1000);
+      ESP.restart();
+    } else {
+      Serial.println("❌ OTA FAILED");
+    }
+  }
+
+  delay(10); // keep watchdog happy
 }
 
 

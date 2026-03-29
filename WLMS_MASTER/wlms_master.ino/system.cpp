@@ -4,3 +4,4 @@
 SystemState sys;
 SemaphoreHandle_t sysMutex;
 QueueHandle_t logQueue;
+volatile bool otaReady = false;

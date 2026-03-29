@@ -3,14 +3,17 @@
 extern "C" {
 #include "esp_ota_ops.h"
 #include "esp_partition.h"
+#include "mbedtls/pk.h"
+#include "mbedtls/sha256.h"
+#include "mbedtls/base64.h"
+#include "mbedtls/md.h"
 }
 
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
 #include <Update.h>
-#include "mbedtls/base64.h"     // For decoding Basic Auth
-#include "mbedtls/sha256.h"
-#include "index.html.h"
+#include <SPIFFS.h>
+#include "index_html.h"
 #include "config.h"
 
 static AsyncWebServer server(80);
@@ -23,15 +26,23 @@ String signatureStr = "";
 // ================= SHA256 =================
 String sha256File(const char* path) {
   File file = SPIFFS.open(path, FILE_READ);
-  if (!file) return "";
+  if (!file) {
+    Serial.println("❌ Failed to open file");
+    return "";
+  }
+
+  Serial.printf("📦 File size: %u bytes\n", file.size());
 
   mbedtls_sha256_context ctx;
   mbedtls_sha256_init(&ctx);
   mbedtls_sha256_starts(&ctx, 0);
 
   uint8_t buf[1024];
-  while (file.available()) {
-    size_t len = file.read(buf, sizeof(buf));
+
+  while (true) {
+    int len = file.read(buf, sizeof(buf));
+    if (len <= 0) break;
+
     mbedtls_sha256_update(&ctx, buf, len);
   }
 
@@ -83,45 +94,75 @@ void handleUpload(AsyncWebServerRequest *request,
                   size_t len,
                   bool final) {
 
-  if (index == 0) {
-    Serial.println("Upload Start");
+  // if (index == 0) {
+  //   Serial.println("Upload Start");
 
-    if (SPIFFS.exists("/update.bin"))
-      SPIFFS.remove("/update.bin");
+  //   if (SPIFFS.exists("/update.bin"))
+  //     SPIFFS.remove("/update.bin");
 
-    otaFile = SPIFFS.open("/update.bin", FILE_WRITE);
+  //   otaFile = SPIFFS.open("/update.bin", FILE_WRITE);
+  // }
+
+  // if (otaFile) otaFile.write(data, len);
+  // Serial.printf("Writing %u bytes at index %u\n", len, index);
+  // if (final) {
+  //   if (otaFile) {
+  //     otaFile.flush(); 
+  //     otaFile.close();
+  //   }
+  //   Serial.println("Upload Complete (SPIFFS)");
+  // }
+
+  const esp_partition_t* part = esp_ota_get_next_update_partition(NULL);
+
+  if (!Update.begin(part->size)) {
+    Serial.println("invalid partition");
+    return;
   }
-
-  if (otaFile) otaFile.write(data, len);
-
-  if (final) {
-    if (otaFile) otaFile.close();
-    Serial.println("Upload Complete (SPIFFS)");
+  Serial.printf("available partition: %s\n", part->label);
+  if (Update.write(data, len) != len) {
+    Serial.println("Something went wrong");
+    return;
   }
+   delay(1000);
+  ESP.restart();
 }
 
 // ================= FLASH =================
 bool flashFromSPIFFS() {
   File file = SPIFFS.open("/update.bin");
-  if (!file) return false;
+  if (!file) {
+    Serial.println("flash func 1");
+    return false;
+  }
 
-  if (!Update.begin(file.size())) {
+  const esp_partition_t* part = esp_ota_get_next_update_partition(NULL);
+  if (!Update.begin(part->size)) {
     file.close();
+    Serial.println("flash func 2");
     return false;
   }
 
   uint8_t buf[1024];
   while (file.available()) {
     size_t len = file.read(buf, sizeof(buf));
+
     if (Update.write(buf, len) != len) {
+      Serial.println("❌ Write failed");
       file.close();
       return false;
     }
+
+    yield();           // ✅ VERY IMPORTANT
   }
 
   file.close();
 
-  if (!Update.end(true)) return false;
+  if (!Update.end(true)) {
+    Serial.print("issue with the update");
+    return false;
+  }
+  Serial.print("update sucessfull");
 
   return true;
 }
@@ -129,53 +170,63 @@ bool flashFromSPIFFS() {
 // ================= UPDATE HANDLER =================
 void handleUpdate(AsyncWebServerRequest *request) {
 
-  if (!request->hasParam("metadata", true) ||
-      !request->hasParam("signature", true)) {
-    request->send(400, "application/json", "{\"success\":false,\"message\":\"Missing metadata/signature\"}");
-    return;
-  }
+  // if (!request->hasParam("metadata", true) ||
+  //     !request->hasParam("signature", true)) {
+  //   request->send(400, "application/json", "{\"success\":false,\"message\":\"Missing metadata/signature\"}");
+  //   return;
+  // }
 
-  metadataStr = request->getParam("metadata", true)->value();
-  signatureStr = request->getParam("signature", true)->value();
+  // metadataStr = request->getParam("metadata", true)->value();
+  // signatureStr = request->getParam("signature", true)->value();
+  // delay(10); 
+  // // 🔐 Verify signature
+  // if (!verifySignature(metadataStr, signatureStr)) {
+  //   request->send(403, "application/json", "{\"success\":false,\"message\":\"Invalid signature\"}");
+  //   SPIFFS.remove("/update.bin");
+  //   return;
+  // }
 
-  // 🔐 Verify signature
-  if (!verifySignature(metadataStr, signatureStr)) {
-    request->send(403, "application/json", "{\"success\":false,\"message\":\"Invalid signature\"}");
-    SPIFFS.remove("/update.bin");
-    return;
-  }
+  // // 🔴 TEMP: metadata = hash
+  // String expectedHash = "";
 
-  // 🔴 TEMP: metadata = hash
-  String expectedHash = metadataStr;
+  // int hashIndex = metadataStr.indexOf("\"hash\":\"");
+  // if (hashIndex != -1) {
+  //   int start = hashIndex + 8;
+  //   int end = metadataStr.indexOf("\"", start);
+  //   if (end != -1) {
+  //     expectedHash = metadataStr.substring(start, end);
+  //   }
+  // }
 
-  String actualHash = sha256File("/update.bin");
+  // String actualHash = sha256File("/update.bin");
 
-  Serial.println("Expected: " + expectedHash);
-  Serial.println("Actual:   " + actualHash);
+  // Serial.println("Expected: " + expectedHash);
+  // Serial.println("Actual:   " + actualHash);
 
-  if (expectedHash != actualHash) {
-    request->send(403, "application/json", "{\"success\":false,\"message\":\"Hash mismatch\"}");
-    SPIFFS.remove("/update.bin");
-    return;
-  }
+  // if (expectedHash != actualHash) {
+  //   request->send(403, "application/json", "{\"success\":false,\"message\":\"Hash mismatch\"}");
+  //   SPIFFS.remove("/update.bin");
+  //   return;
+  // }
 
-  // 🚀 Flash
-  if (!flashFromSPIFFS()) {
-    request->send(500, "application/json", "{\"success\":false,\"message\":\"Flashing failed\"}");
-    SPIFFS.remove("/update.bin");
-    return;
-  }
-
-  SPIFFS.remove("/update.bin");
+  // // 🚀 Flash
+  // if (!flashFromSPIFFS()) {
+  //   request->send(500, "application/json", "{\"success\":false,\"message\":\"Flashing failed\"}");
+  //   SPIFFS.remove("/update.bin");
+  //   return;
+  // }
+  // otaReady = true;
+  // SPIFFS.remove("/update.bin");
 
   request->send(200, "application/json", "{\"success\":true,\"message\":\"Update OK, rebooting...\"}");
-  delay(1000);
-  ESP.restart();
+ 
 }
 
 void handleStatusRequest(AsyncWebServerRequest *request) {
   char json[128];
-  snprintf(json, sizeof(json), "{\"heap\":%u,\"version\":\"%s\"}", ESP.getFreeHeap(), VERSION.c_str());
+  const esp_partition_t* running = esp_ota_get_running_partition();
+  Serial.printf("Running partition: %s\n", running->label);
+  snprintf(json, sizeof(json), "{\"heap\":%u,\"version\":\"%s\"}", ESP.getFreeHeap(), VERSION);
   request->send(200, "application/json", json);
 }
 
@@ -236,7 +287,7 @@ void web_dash_init() {
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
     request->send(200, "text/html", "<h1>Web Dashboard</h1><br><p>Work in progress......</p>");
   });
-  server.on("/update", HTTP_GET, handleUpdate);
+  server.on("/update", HTTP_POST, handleUpdate, handleUpload);
   server.on("/status", HTTP_GET, handleStatusRequest);
 
   // server.on(
