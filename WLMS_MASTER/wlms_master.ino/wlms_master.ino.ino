@@ -60,22 +60,6 @@ void setup() {
     xTaskCreatePinnedToCore(control_task, "control", 4096, NULL, 3, NULL, 1);
 }
 
-void loop() {
-    if (otaReady) {
-    otaReady = false;
-
-    Serial.println("🚀 OTA FLASH START");
-
-    if (flashFromSPIFFS()) {
-      Serial.println("✅ OTA DONE");
-      delay(1000);
-      ESP.restart();
-    } else {
-      Serial.println("❌ OTA FAILED");
-    }
-  }
-
-  delay(10); // keep watchdog happy
-}
+void loop() {}
 
 

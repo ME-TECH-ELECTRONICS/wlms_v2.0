@@ -1,306 +1,143 @@
+#include <stdint.h>
 #include "web_dash.h"
-
+#include <WiFi.h>
+#include <ArduinoJson.h>
+#include <ESPAsyncWebServer.h>
 extern "C" {
-#include "esp_ota_ops.h"
-#include "esp_partition.h"
-#include "mbedtls/pk.h"
-#include "mbedtls/sha256.h"
-#include "mbedtls/base64.h"
 #include "mbedtls/md.h"
 }
-
-#include <WiFi.h>
-#include <ESPAsyncWebServer.h>
-#include <Update.h>
-#include <SPIFFS.h>
-#include "index_html.h"
 #include "config.h"
 
+const uint8_t NONCE_HISTORY = 10;
+const uint8_t NONCE_LEN = 17;   // 16 chars + null
+unsigned long lastRequestTime = 0;
+char usedNonces[NONCE_HISTORY][NONCE_LEN];
+int nonceIndex = 0;
+const char* SECRET = "3e3c9fe7e5d099e1013e8f20c52b46ff0cea526d7bf472fc3195a928284300ce";
+
 static AsyncWebServer server(80);
+IPAddress trustedServer(10,174,113,67);
 
-// ================= GLOBAL =================
-File otaFile;
-String metadataStr = "";
-String signatureStr = "";
-
-// ================= SHA256 =================
-String sha256File(const char* path) {
-  File file = SPIFFS.open(path, FILE_READ);
-  if (!file) {
-    Serial.println("❌ Failed to open file");
-    return "";
-  }
-
-  Serial.printf("📦 File size: %u bytes\n", file.size());
-
-  mbedtls_sha256_context ctx;
-  mbedtls_sha256_init(&ctx);
-  mbedtls_sha256_starts(&ctx, 0);
-
-  uint8_t buf[1024];
-
-  while (true) {
-    int len = file.read(buf, sizeof(buf));
-    if (len <= 0) break;
-
-    mbedtls_sha256_update(&ctx, buf, len);
-  }
-
-  uint8_t hash[32];
-  mbedtls_sha256_finish(&ctx, hash);
-  mbedtls_sha256_free(&ctx);
-  file.close();
-
-  char out[65];
-  for (int i = 0; i < 32; i++) sprintf(out + i * 2, "%02x", hash[i]);
-  out[64] = 0;
-
-  return String(out);
-}
-
-// ================= SIGNATURE VERIFY =================
-bool verifySignature(const String& metadata, const String& sig_b64) {
-  uint8_t sig[128];
-  size_t sig_len;
-
-  if (mbedtls_base64_decode(sig, sizeof(sig), &sig_len,
-      (const unsigned char*)sig_b64.c_str(), sig_b64.length()) != 0)
-    return false;
-
-  uint8_t hash[32];
-  mbedtls_sha256((const unsigned char*)metadata.c_str(), metadata.length(), hash, 0);
-
-  mbedtls_pk_context pk;
-  mbedtls_pk_init(&pk);
-
-  if (mbedtls_pk_parse_public_key(&pk,
-      (const unsigned char*)PUBLIC_KEY,
-      strlen(PUBLIC_KEY) + 1) != 0) {
-    mbedtls_pk_free(&pk);
-    return false;
-  }
-
-  int ret = mbedtls_pk_verify(&pk, MBEDTLS_MD_SHA256, hash, 0, sig, sig_len);
-
-  mbedtls_pk_free(&pk);
-  return (ret == 0);
-}
-
-// ================= OTA UPLOAD =================
-void handleUpload(AsyncWebServerRequest *request,
-                  String filename,
-                  size_t index,
-                  uint8_t *data,
-                  size_t len,
-                  bool final) {
-
-  // if (index == 0) {
-  //   Serial.println("Upload Start");
-
-  //   if (SPIFFS.exists("/update.bin"))
-  //     SPIFFS.remove("/update.bin");
-
-  //   otaFile = SPIFFS.open("/update.bin", FILE_WRITE);
-  // }
-
-  // if (otaFile) otaFile.write(data, len);
-  // Serial.printf("Writing %u bytes at index %u\n", len, index);
-  // if (final) {
-  //   if (otaFile) {
-  //     otaFile.flush(); 
-  //     otaFile.close();
-  //   }
-  //   Serial.println("Upload Complete (SPIFFS)");
-  // }
-
-  const esp_partition_t* part = esp_ota_get_next_update_partition(NULL);
-
-  if (!Update.begin(part->size)) {
-    Serial.println("invalid partition");
-    return;
-  }
-  Serial.printf("available partition: %s\n", part->label);
-  if (Update.write(data, len) != len) {
-    Serial.println("Something went wrong");
-    return;
-  }
-   delay(1000);
-  ESP.restart();
-}
-
-// ================= FLASH =================
-bool flashFromSPIFFS() {
-  File file = SPIFFS.open("/update.bin");
-  if (!file) {
-    Serial.println("flash func 1");
-    return false;
-  }
-
-  const esp_partition_t* part = esp_ota_get_next_update_partition(NULL);
-  if (!Update.begin(part->size)) {
-    file.close();
-    Serial.println("flash func 2");
-    return false;
-  }
-
-  uint8_t buf[1024];
-  while (file.available()) {
-    size_t len = file.read(buf, sizeof(buf));
-
-    if (Update.write(buf, len) != len) {
-      Serial.println("❌ Write failed");
-      file.close();
-      return false;
+bool isReplay(const char *nonce) {
+  for (int i = 0; i < NONCE_HISTORY; i++) {
+    if (strcmp(usedNonces[i], nonce) == 0) {
+      return true;
     }
-
-    yield();           // ✅ VERY IMPORTANT
   }
 
-  file.close();
+  strncpy(usedNonces[nonceIndex], nonce, NONCE_LEN);
+  usedNonces[nonceIndex][NONCE_LEN - 1] = '\0';
 
-  if (!Update.end(true)) {
-    Serial.print("issue with the update");
-    return false;
-  }
-  Serial.print("update sucessfull");
+  nonceIndex = (nonceIndex + 1) % NONCE_HISTORY;
+  return false;
+}
 
+bool rateLimit() {
+  unsigned long now = millis();
+  if (now - lastRequestTime < 200) return false;  // 5 req/sec max
+  lastRequestTime = now;
   return true;
 }
 
-// ================= UPDATE HANDLER =================
-void handleUpdate(AsyncWebServerRequest *request) {
+String hmac_sha256(const String &data, const String &key) {
+  byte hmac[32];
 
-  // if (!request->hasParam("metadata", true) ||
-  //     !request->hasParam("signature", true)) {
-  //   request->send(400, "application/json", "{\"success\":false,\"message\":\"Missing metadata/signature\"}");
-  //   return;
-  // }
+  mbedtls_md_context_t ctx;
+  mbedtls_md_init(&ctx);
 
-  // metadataStr = request->getParam("metadata", true)->value();
-  // signatureStr = request->getParam("signature", true)->value();
-  // delay(10); 
-  // // 🔐 Verify signature
-  // if (!verifySignature(metadataStr, signatureStr)) {
-  //   request->send(403, "application/json", "{\"success\":false,\"message\":\"Invalid signature\"}");
-  //   SPIFFS.remove("/update.bin");
-  //   return;
-  // }
+  const mbedtls_md_info_t *info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
+  mbedtls_md_setup(&ctx, info, 1);
+  mbedtls_md_hmac_starts(&ctx, (const unsigned char *)key.c_str(), key.length());
+  mbedtls_md_hmac_update(&ctx, (const unsigned char *)data.c_str(), data.length());
+  mbedtls_md_hmac_finish(&ctx, hmac);
 
-  // // 🔴 TEMP: metadata = hash
-  // String expectedHash = "";
+  mbedtls_md_free(&ctx);
 
-  // int hashIndex = metadataStr.indexOf("\"hash\":\"");
-  // if (hashIndex != -1) {
-  //   int start = hashIndex + 8;
-  //   int end = metadataStr.indexOf("\"", start);
-  //   if (end != -1) {
-  //     expectedHash = metadataStr.substring(start, end);
-  //   }
-  // }
-
-  // String actualHash = sha256File("/update.bin");
-
-  // Serial.println("Expected: " + expectedHash);
-  // Serial.println("Actual:   " + actualHash);
-
-  // if (expectedHash != actualHash) {
-  //   request->send(403, "application/json", "{\"success\":false,\"message\":\"Hash mismatch\"}");
-  //   SPIFFS.remove("/update.bin");
-  //   return;
-  // }
-
-  // // 🚀 Flash
-  // if (!flashFromSPIFFS()) {
-  //   request->send(500, "application/json", "{\"success\":false,\"message\":\"Flashing failed\"}");
-  //   SPIFFS.remove("/update.bin");
-  //   return;
-  // }
-  // otaReady = true;
-  // SPIFFS.remove("/update.bin");
-
-  request->send(200, "application/json", "{\"success\":true,\"message\":\"Update OK, rebooting...\"}");
- 
+  char output[65];
+  for (int i = 0; i < 32; i++) {
+    sprintf(output + i * 2, "%02x", hmac[i]);
+  }
+  return String(output);
 }
 
 void handleStatusRequest(AsyncWebServerRequest *request) {
   char json[128];
-  const esp_partition_t* running = esp_ota_get_running_partition();
-  Serial.printf("Running partition: %s\n", running->label);
   snprintf(json, sizeof(json), "{\"heap\":%u,\"version\":\"%s\"}", ESP.getFreeHeap(), VERSION);
   request->send(200, "application/json", json);
 }
 
-// ---------------- OTA Upload ----------------
-// void handleUpdate(AsyncWebServerRequest *request) {
-//   if (!request->hasParam("key", true)) { request->send(403, "text/plain", "Forbidden"); return; }
-//   String key = request->getParam("key", true)->value();
-//   if (!validateKey(key)) { request->send(403, "text/plain", "Forbidden"); return; }
-
-//   // OTA handled in onUpload callback below
-//   request->send(200, "text/plain", "Upload started");
-// }
-
-// =========================
-// OTA Upload
-// =========================
-// static void handleUpdateUpload() {
-//   HTTPUpload& up = server.upload();
-
-//   if (up.status == UPLOAD_FILE_START) {
-
-//     ota_log = "Starting OTA...";
-//     ota_received = 0;
-//     ota_total = up.totalSize;
-
-//     const esp_partition_t* part = esp_ota_get_next_update_partition(NULL);
-
-//     if (!Update.begin(part->size)) {
-//       ota_log = "Begin Failed";
-//       return;
-//     }
-
-//   } else if (up.status == UPLOAD_FILE_WRITE) {
-
-//     if (Update.write(up.buf, up.currentSize) != up.currentSize) {
-//       ota_log = "Write Failed";
-//       return;
-//     }
-
-//     ota_received += up.currentSize;
-
-//   } else if (up.status == UPLOAD_FILE_END) {
-
-//     if (Update.end(true)) {
-//       ota_log = "Success. Rebooting...";
-//       ota_success = true;
-//     } else {
-//       ota_log = "Failed";
-//     }
-//   }
-// }
-
-// =========================
-// Setup Server
-// =========================
 void web_dash_init() {
 
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
+    IPAddress ip = request->client()->remoteIP();
+    Serial.print("Request from: ");
+    Serial.println(ip);
     request->send(200, "text/html", "<h1>Web Dashboard</h1><br><p>Work in progress......</p>");
+
   });
-  server.on("/update", HTTP_POST, handleUpdate, handleUpload);
+  // server.on("/update", HTTP_POST, handleUpdate, handleUpload);
   server.on("/status", HTTP_GET, handleStatusRequest);
 
-  // server.on(
-  //   "/update", HTTP_POST, []() {
-  //     if (!auth()) return;
+  server.on(
+    "/api/7f3a9c_motor_ctrl", HTTP_POST, [](AsyncWebServerRequest *request) {}, NULL,
+    [](AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t, size_t) {
+      // 🔐 IP Restriction
+      if (request->client()->remoteIP() != trustedServer) {
+        request->send(403, "text/plain", "Forbidden");
+        return;
+      }
 
-  //     server.send(200, "text/plain",
-  //                 ota_success ? "Success" : "Failed");
+      // ⚡ Rate limiting
+      if (!rateLimit()) {
+        request->send(429, "text/plain", "Too Many Requests");
+        return;
+      }
 
-  //     delay(1000);
-  //     if (ota_success) ESP.restart();
-  //   },
-  //   handleUpdateUpload);
+      // Parse JSON
+      DynamicJsonDocument doc(512);
+      deserializeJson(doc, data, len);
 
+      String action = doc["action"];
+      long timestamp = doc["timestamp"];
+      const char* nonce = doc["nonce"];
+      String sig = doc["sig"];
+
+      // 🔁 Replay protection
+      if (isReplay(nonce)) {
+        request->send(403, "text/plain", "Replay detected");
+        return;
+      }
+
+      // ⏱ Timestamp check (±30 sec)
+      long now = time(NULL);
+      if (abs(now - timestamp) > 30) {
+        request->send(403, "text/plain", "Expired request");
+        return;
+      }
+
+      // Rebuild payload
+      doc.remove("sig");
+      String payload;
+      serializeJson(doc, payload);
+
+      String expected = hmac_sha256(payload, SECRET);
+
+      if (expected != sig) {
+        request->send(403, "text/plain", "Invalid signature");
+        return;
+      }
+
+      // ✅ Strict action validation
+      if (action == "motor_on") {
+        digitalWrite(15, HIGH);
+      } else if (action == "motor_off") {
+        digitalWrite(15, LOW);
+      } else {
+        request->send(400, "text/plain", "Invalid action");
+        return;
+      }
+
+      request->send(200, "text/plain", "OK");
+    });
   server.begin();
 }
