@@ -3,7 +3,7 @@
     "configurations": [
         {
             "name": "Arduino",
-            "compilerPath": "E:\\AppData\\Arduino15\\packages\\esp32\\tools\\esp-x32\\2511\\bin\\xtensa-esp32-elf-g++",
+            "compilerPath": "C:\\Users\\MELVIN\\AppData\\Local\\Arduino15\\packages\\esp32\\tools\\esp-x32\\2511\\bin\\xtensa-esp32-elf-g++",
             "compilerArgs": [
                 "-MMD",
                 "-w",
@@ -12,29 +12,22 @@
             ],
             "intelliSenseMode": "gcc-x64",
             "includePath": [
-                "E:\\github\\wlms_v2.0",
-                "E:\\AppData\\Arduino15\\packages\\esp32\\tools\\esp32-libs\\3.3.7\\qio_qspi\\include",
-                "E:\\AppData\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.7\\cores\\esp32",
-                "E:\\AppData\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.7\\variants\\esp32",
-                "E:\\AppData\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.7\\libraries\\WiFi\\src",
-                "E:\\AppData\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.7\\libraries\\Network\\src",
-                "E:\\AppData\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.7\\libraries\\WebServer\\src",
-                "E:\\AppData\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.7\\libraries\\FS\\src",
-                "E:\\AppData\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.7\\libraries\\ArduinoOTA\\src",
-                "E:\\AppData\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.7\\libraries\\Update\\src",
-                "E:\\AppData\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.7\\libraries\\SPI\\src",
-                "E:\\AppData\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.7\\libraries\\SD\\src",
-                "E:\\AppData\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.7\\libraries\\Hash\\src",
-                "E:\\AppData\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.7\\libraries\\ESPmDNS\\src",
-                "E:\\AppData\\Arduino15\\packages\\esp32\\tools\\esp-x32\\2511\\xtensa-esp-elf\\include\\c++\\14.2.0",
-                "E:\\AppData\\Arduino15\\packages\\esp32\\tools\\esp-x32\\2511\\xtensa-esp-elf\\include\\c++\\14.2.0\\xtensa-esp-elf\\esp32",
-                "E:\\AppData\\Arduino15\\packages\\esp32\\tools\\esp-x32\\2511\\xtensa-esp-elf\\include\\c++\\14.2.0\\backward",
-                "E:\\AppData\\Arduino15\\packages\\esp32\\tools\\esp-x32\\2511\\lib\\gcc\\xtensa-esp-elf\\14.2.0\\include",
-                "E:\\AppData\\Arduino15\\packages\\esp32\\tools\\esp-x32\\2511\\lib\\gcc\\xtensa-esp-elf\\14.2.0\\include-fixed",
-                "E:\\AppData\\Arduino15\\packages\\esp32\\tools\\esp-x32\\2511\\xtensa-esp-elf\\include"
+                "D:\\GitHub\\wlms_v2.0",
+                "C:\\Users\\MELVIN\\AppData\\Local\\Arduino15\\packages\\esp32\\tools\\esp32-libs\\3.3.7\\qio_qspi\\include",
+                "C:\\Users\\MELVIN\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.7\\cores\\esp32",
+                "C:\\Users\\MELVIN\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.7\\variants\\esp32",
+                "C:\\Users\\MELVIN\\Documents\\Arduino\\libraries\\U8g2\\src",
+                "C:\\Users\\MELVIN\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.7\\libraries\\Wire\\src",
+                "C:\\Users\\MELVIN\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.7\\libraries\\SPI\\src",
+                "C:\\Users\\MELVIN\\AppData\\Local\\Arduino15\\packages\\esp32\\tools\\esp-x32\\2511\\xtensa-esp-elf\\include\\c++\\14.2.0",
+                "C:\\Users\\MELVIN\\AppData\\Local\\Arduino15\\packages\\esp32\\tools\\esp-x32\\2511\\xtensa-esp-elf\\include\\c++\\14.2.0\\xtensa-esp-elf\\esp32",
+                "C:\\Users\\MELVIN\\AppData\\Local\\Arduino15\\packages\\esp32\\tools\\esp-x32\\2511\\xtensa-esp-elf\\include\\c++\\14.2.0\\backward",
+                "C:\\Users\\MELVIN\\AppData\\Local\\Arduino15\\packages\\esp32\\tools\\esp-x32\\2511\\lib\\gcc\\xtensa-esp-elf\\14.2.0\\include",
+                "C:\\Users\\MELVIN\\AppData\\Local\\Arduino15\\packages\\esp32\\tools\\esp-x32\\2511\\lib\\gcc\\xtensa-esp-elf\\14.2.0\\include-fixed",
+                "C:\\Users\\MELVIN\\AppData\\Local\\Arduino15\\packages\\esp32\\tools\\esp-x32\\2511\\xtensa-esp-elf\\include"
             ],
             "forcedInclude": [
-                "E:\\AppData\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.7\\cores\\esp32\\Arduino.h"
+                "C:\\Users\\MELVIN\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.7\\cores\\esp32\\Arduino.h"
             ],
             "cStandard": "c11",
             "cppStandard": "c++11",

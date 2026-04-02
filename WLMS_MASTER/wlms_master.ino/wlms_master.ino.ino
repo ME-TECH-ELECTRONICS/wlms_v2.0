@@ -1,5 +1,4 @@
 #include <WiFi.h>
-#include "SPIFFS.h"
 #include "config.h"
 #include "system.h"
 #include "fsm_controller.h"

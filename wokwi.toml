@@ -1,7 +1,7 @@
 [wokwi]
 version = 1
-elf = "firmware.elf"
-firmware = "firmware.bin"
+#elf = "firmware.elf"
+firmware = "firmware.hex"
 
 # Forward http://localhost:8180 to port 80 on the simulated ESP32:
 [[net.forward]]

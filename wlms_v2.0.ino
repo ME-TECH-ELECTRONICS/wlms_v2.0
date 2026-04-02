@@ -1,337 +1,114 @@
 #include <Arduino.h>
-#include <WiFi.h>
-#include <WebServer.h>
-#include <ArduinoOTA.h>
-#include <SPI.h>
-#include <SD.h>
+#include <U8g2lib.h>
+#include <Wire.h>
 
-// ================= CONFIG =================
-#define MOTOR_PIN 4
-#define BUTTON_START_PIN 16
-#define BUTTON_MODE_PIN 17
+// ---------- DISPLAY SETUP (Page buffer mode) ----------
+U8G2_SSD1306_128X64_NONAME_1_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
 
-#define START_THRESHOLD 10
-#define STOP_THRESHOLD 90
+// ---------- MOCK DATA (replace with real sensors) ----------
+int level = 65;         // %
+int voltage = 230;      // V
+int volume = 1200;      // L
 
-#define VOLTAGE_MIN 220
-#define VOLTAGE_FAIL 110
+bool isMotorOn = true;
+bool isMainsCut = false;
+bool isWifiConnected = true;
 
-#define DAY_START_HOUR 6
-#define DAY_END_HOUR 18
+char dateTime[] = "02-04 11:30";
 
-// ================= SYSTEM =================
-enum Mode { MODE_AUTO,
-            MODE_SEMI,
-            MODE_MANUAL };
-enum State {
-  STATE_IDLE,
-  STATE_WAIT_LOW,
-  STATE_STARTING,
-  STATE_RUNNING,
-  STATE_BLOCKED,
-  STATE_FULL,
-  STATE_MANUAL
+// ---------- WIFI ICON (8x8 bitmap) ----------
+const unsigned char wifi_icon[] = {
+  0x00, 0x18, 0x24, 0x42, 0x81, 0x00, 0x18, 0x00
 };
 
-struct SystemState {
-  float level;
-  float voltage;
-  bool motor;
-  bool isDay;
+// ---------- UI DRAW FUNCTION ----------
+void drawUI() {
 
-  Mode mode;
-  State state;
+  // ---- Tank outline ----
+  u8g2.drawFrame(108, 4, 20, 60);
 
-  int start_th;
-  int stop_th;
-};
+  // ---- Smooth water fill ----
+  int fillHeight = map(level, 0, 100, 0, 58);
+  u8g2.drawBox(109, 62 - fillHeight, 18, fillHeight);
 
-SystemState sys;
-
-// ================= RTOS =================
-SemaphoreHandle_t sysMutex;
-QueueHandle_t logQueue;
-
-// ================= WEB =================
-WebServer server(80);
-
-// ================= MOTOR =================
-void motor_init() {
-  pinMode(MOTOR_PIN, OUTPUT);
-  digitalWrite(MOTOR_PIN, LOW);
-}
-
-void motor_on() {
-  digitalWrite(MOTOR_PIN, HIGH);
-}
-
-void motor_off() {
-  digitalWrite(MOTOR_PIN, LOW);
-}
-
-// ================= MOCK FUNCTIONS =================
-// Replace these with real implementations
-
-float read_voltage() {
-  return random(200, 240);
-}
-float lora_receive() {
-  static int val = 100;
-  static bool decreasing = true;
-
-  if (decreasing) {
-    val--;
-    if (val <= 9) {
-      val = 9;
-      decreasing = false;  // switch direction
-    }
-  } else {
-    val++;
-    if (val >= 100) {
-      val = 100;
-      decreasing = true;  // switch direction
-    }
+  // ---- Tank markers ----
+  for (int y = 6; y < 60; y += 6) {
+    u8g2.drawLine(108, y, 110, y);
   }
 
-  return (float)val;
-}
+  // ---- Title ----
+  u8g2.setFont(u8g2_font_5x7_tr);
+  u8g2.drawStr(2, 10, "Water LvL");
 
-bool is_daytime() {
-  int h = (millis() / 1000) % 24;
-  return (h >= DAY_START_HOUR && h <= DAY_END_HOUR);
-}
+  // ---- Big percentage ----
+  char buf[12];
+  snprintf(buf, sizeof(buf), "%d%%", level);
+  u8g2.setFont(u8g2_font_logisoso16_tr);
+  u8g2.drawStr(5, 26, buf);
 
-// ================= LOGGER =================
-struct LogMsg {
-  char msg[128];
-};
+  u8g2.drawLine(3, 31, 55, 31);
 
-void log_event(const char *text) {
-  LogMsg m;
-  snprintf(m.msg, sizeof(m.msg), "%lu | %s\n", millis(), text);
-  xQueueSend(logQueue, &m, 0);
-}
+  // ---- Voltage ----
+  u8g2.setFont(u8g2_font_5x7_tr);
+  u8g2.drawStr(60, 40, "Voltage");
 
-void logger_task(void *pv) {
-  LogMsg m;
+  u8g2.setFont(u8g2_font_6x10_tr);
+  snprintf(buf, sizeof(buf), "%dV", voltage);
+  u8g2.drawStr(60, 52, buf);
 
-  while (1) {
-    if (xQueueReceive(logQueue, &m, portMAX_DELAY)) {
-      Serial.println(m.msg);
+  u8g2.drawLine(55, 35, 55, 50);
 
-      File f = SD.open("/log.txt", FILE_APPEND);
-      if (f) {
-        f.print(m.msg);
-        f.close();
-      }
-    }
+  // ---- Volume ----
+  u8g2.setFont(u8g2_font_5x7_tr);
+  u8g2.drawStr(8, 40, "Volume");
+
+  u8g2.setFont(u8g2_font_6x10_tr);
+  snprintf(buf, sizeof(buf), "%dL", volume);
+  u8g2.drawStr(8, 52, buf);
+
+  u8g2.drawLine(3, 53, 100, 53);
+
+  // ---- Date & Time ----
+  u8g2.setFont(u8g2_font_5x7_tr);
+  u8g2.drawStr(5, 63, dateTime);
+
+  // ---- Motor status ----
+  if (isMotorOn) {
+    u8g2.drawFrame(60, 5, 45, 25);
+    u8g2.drawCircle(72, 17, 7);
+    u8g2.drawStr(69, 20, "M");
+  }
+
+  // ---- Mains status (~) ----
+  if (!isMainsCut) {
+    u8g2.drawCircle(92, 17, 7);
+    u8g2.setFont(u8g2_font_6x10_tr);
+    u8g2.drawStr(90, 20, "~");
+  }
+
+  // ---- WiFi icon ----
+  if (isWifiConnected) {
+    u8g2.drawXBMP(95, 54, 8, 8, wifi_icon);
   }
 }
 
-// ================= CONTROL FSM =================
-void control_task(void *pv) {
-  while (1) {
-
-    xSemaphoreTake(sysMutex, portMAX_DELAY);
-
-    switch (sys.state) {
-
-      case STATE_IDLE:
-        sys.state = STATE_WAIT_LOW;
-        break;
-
-      case STATE_WAIT_LOW:
-        if (sys.level <= sys.start_th && sys.mode == MODE_AUTO) {
-          sys.state = STATE_STARTING;
-          log_event("LOW LEVEL DETECTED");
-        }
-        break;
-
-      case STATE_STARTING:
-        if (sys.voltage >= VOLTAGE_MIN && sys.isDay) {
-          motor_on();
-          sys.motor = true;
-          sys.state = STATE_RUNNING;
-          log_event("MOTOR ON");
-        } else {
-          sys.state = STATE_BLOCKED;
-          log_event("BLOCKED (LOW VOLT/NIGHT)");
-        }
-        break;
-
-      case STATE_RUNNING:
-        if (sys.voltage <= VOLTAGE_FAIL) {
-          motor_off();
-          sys.motor = false;
-          sys.state = STATE_BLOCKED;
-          log_event("VOLTAGE DROP - MOTOR OFF");
-        } else if (sys.level >= sys.stop_th) {
-          motor_off();
-          sys.motor = false;
-          sys.state = STATE_FULL;
-          log_event("TANK FULL - MOTOR OFF");
-        }
-        break;
-
-      case STATE_BLOCKED:
-        if (sys.voltage >= VOLTAGE_MIN) {
-          sys.state = STATE_STARTING;
-          log_event("RETRY MOTOR");
-        }
-        break;
-
-      case STATE_FULL:
-        sys.state = STATE_WAIT_LOW;
-        break;
-
-      case STATE_MANUAL:
-        break;
-    }
-
-    xSemaphoreGive(sysMutex);
-    vTaskDelay(pdMS_TO_TICKS(200));
-  }
-}
-
-// ================= LORA TASK =================
-void lora_task(void *pv) {
-  while (1) {
-    float lvl = lora_receive();
-
-    xSemaphoreTake(sysMutex, portMAX_DELAY);
-    sys.level = lvl;
-    xSemaphoreGive(sysMutex);
-
-    vTaskDelay(pdMS_TO_TICKS(1000));
-  }
-}
-
-// ================= VOLTAGE TASK =================
-void voltage_task(void *pv) {
-  while (1) {
-    float v = read_voltage();
-
-    xSemaphoreTake(sysMutex, portMAX_DELAY);
-    sys.voltage = v;
-    sys.isDay = is_daytime();
-    xSemaphoreGive(sysMutex);
-
-    vTaskDelay(pdMS_TO_TICKS(1000));
-  }
-}
-
-// ================= BUTTON TASK =================
-void button_task(void *pv) {
-  pinMode(BUTTON_START_PIN, INPUT_PULLUP);
-  pinMode(BUTTON_MODE_PIN, INPUT_PULLUP);
-
-  bool lastStart = HIGH;
-  bool lastMode = HIGH;
-
-  while (1) {
-    bool nowStart = digitalRead(BUTTON_START_PIN);
-    bool nowMode = digitalRead(BUTTON_MODE_PIN);
-
-    // Start button (active LOW)
-    if (nowStart == LOW && lastStart == HIGH) {
-      motor_on();
-
-      xSemaphoreTake(sysMutex, portMAX_DELAY);
-      sys.motor = true;
-      sys.state = STATE_MANUAL;
-      xSemaphoreGive(sysMutex);
-
-      log_event("MANUAL MOTOR ON");
-    }
-
-    // Mode button
-    if (nowMode == LOW && lastMode == HIGH) {
-      xSemaphoreTake(sysMutex, portMAX_DELAY);
-      sys.mode = (Mode)((sys.mode + 1) % 3);
-      xSemaphoreGive(sysMutex);
-
-      log_event("MODE CHANGED");
-    }
-
-    lastStart = nowStart;
-    lastMode = nowMode;
-
-    vTaskDelay(pdMS_TO_TICKS(50));  // debounce
-  }
-}
-
-// ================= DISPLAY TASK =================
-void display_task(void *pv) {
-  while (1) {
-    xSemaphoreTake(sysMutex, portMAX_DELAY);
-
-    Serial.printf("Level: %.1f%% | Volt: %.1fV | Motor: %d | Mode: %d\n",
-                  sys.level, sys.voltage, sys.motor, sys.mode);
-
-    xSemaphoreGive(sysMutex);
-
-    vTaskDelay(pdMS_TO_TICKS(1000));
-  }
-}
-
-// ================= WEB =================
-void handle_root() {
-  String html = "<h1>Water Controller</h1>";
-  html += "<p>Level: " + String(sys.level) + "%</p>";
-  html += "<p>Voltage: " + String(sys.voltage) + "V</p>";
-  html += "<p>Motor: " + String(sys.motor) + "</p>";
-  server.send(200, "text/html", html);
-}
-
-void web_task(void *pv) {
-  WiFi.softAP("ESP32_Controller");
-
-  server.on("/", handle_root);
-  server.begin();
-
-  while (1) {
-    server.handleClient();
-    vTaskDelay(10);
-  }
-}
-
-// ================= OTA =================
-void ota_task(void *pv) {
-  ArduinoOTA.begin();
-
-  while (1) {
-    ArduinoOTA.handle();
-    vTaskDelay(10);
-  }
-}
-
-// ================= SETUP =================
+// ---------- SETUP ----------
 void setup() {
-  Serial.begin(115200);
-
-  sys.start_th = START_THRESHOLD;
-  sys.stop_th = STOP_THRESHOLD;
-  sys.mode = MODE_AUTO;
-  sys.state = STATE_IDLE;
-
-  motor_init();
-
-  sysMutex = xSemaphoreCreateMutex();
-  logQueue = xQueueCreate(10, sizeof(LogMsg));
-
-  SD.begin();
-
-  xTaskCreatePinnedToCore(control_task, "control", 4096, NULL, 3, NULL, 1);
-  xTaskCreatePinnedToCore(lora_task, "lora", 4096, NULL, 2, NULL, 1);
-  xTaskCreatePinnedToCore(voltage_task, "volt", 2048, NULL, 2, NULL, 1);
-  xTaskCreatePinnedToCore(display_task, "display", 2048, NULL, 1, NULL, 0);
-  xTaskCreatePinnedToCore(logger_task, "logger", 4096, NULL, 1, NULL, 0);
-  xTaskCreatePinnedToCore(button_task, "button", 2048, NULL, 2, NULL, 1);
-  xTaskCreatePinnedToCore(web_task, "web", 4096, NULL, 1, NULL, 0);
-  xTaskCreatePinnedToCore(ota_task, "ota", 4096, NULL, 1, NULL, 0);
+  u8g2.begin();
 }
 
-// ================= LOOP =================
+// ---------- LOOP ----------
 void loop() {
-  vTaskDelay(portMAX_DELAY);
+
+  // Page buffer rendering (low RAM, stable)
+  u8g2.firstPage();
+  do {
+    drawUI();
+  } while (u8g2.nextPage());
+
+  delay(1000);
+
+  // ---- Demo animation (remove in real project) ----
+  level += 2;
+  if (level > 100) level = 0;
 }
