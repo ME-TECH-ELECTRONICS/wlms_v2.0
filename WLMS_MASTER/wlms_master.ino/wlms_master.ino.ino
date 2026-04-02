@@ -6,7 +6,8 @@
 #include "display.h"
 #include "web_dash.h"
 #define FORMAT_SPIFFS_IF_FAILED true
-
+time_t RTCnow;
+struct tm timeinfo;
 void setup() {
     Serial.begin(115200);
     pinMode(MODE_BTN, INPUT_PULLUP);
@@ -39,16 +40,23 @@ void setup() {
     delay(3000);
     WiFi.mode(WIFI_STA);
     WiFi.begin(ACCESS_POINT_SSID, ACCESS_POINT_PASSWORD);
-     Serial.print("Connecting to WiFi");
+    Serial.print("Connecting to WiFi");
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
         Serial.print(".");
     }
-     Serial.print("Connecting to WiFi");
-    if (!SPIFFS.begin(FORMAT_SPIFFS_IF_FAILED)) {
-        Serial.println("SPIFFS Mount Failed");
-        return;
-    }
+    configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+    while (true) {
+        time(&RTCnow);
+        localtime_r(&RTCnow, &timeinfo);
+
+        if (timeinfo.tm_year > (2020 - 1900)) {
+            break; // valid time
+        }
+
+        delay(500);
+        Serial.print(".");
+    } 
     web_dash_init();
 
     Serial.println("Web Dashboard is ready!");

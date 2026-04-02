@@ -1,77 +1,54 @@
 import requests
+import time
+import hmac
 import hashlib
 import json
-import base64
-import time
+import secrets
 
-from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
-from cryptography.hazmat.backends import default_backend
+# 🔐 CONFIG
+ESP_URL = "http://10.174.113.64/api/7f3a9c_motor_ctrl"
+SECRET = bytes.fromhex("3e3c9fe7e5d099e1013e8f20c52b46ff0cea526d7bf472fc3195a928284300ce")
 
-# ================= CONFIG =================
-ESP32_URL = "http://10.174.113.64:80/update"   # CHANGE THIS
-FIRMWARE_PATH = ".\\WLMS_MASTER\\wlms_master.ino\\build\\esp32.esp32.esp32\\wlms_master.ino.ino.bin"
-PRIVATE_KEY_PATH = "private.pem"
+# ⚙️ Generate payload
+def create_payload(action):
+    payload = {
+        "action": action,
+        "timestamp": int(time.time()),
+        "nonce": secrets.token_hex(8)  # 16 hex chars
+    }
+    return payload
 
-DEVICE_ID = "esp32_001"
-VERSION = "1.0.2"
+# 🔏 Sign payload
+def sign_payload(payload):
+    message = json.dumps(payload, separators=(',', ':'))  # IMPORTANT: no spaces
+    signature = hmac.new(SECRET, message.encode(), hashlib.sha256).hexdigest()
+    return signature, message
 
-# ================= LOAD FIRMWARE =================
-with open(FIRMWARE_PATH, "rb") as f:
-    firmware_data = f.read()
+# 🚀 Send request
+def send_command(action):
+    payload = create_payload(action)
+    sig, message = sign_payload(payload)
 
-# ================= HASH =================
-firmware_hash = hashlib.sha256(firmware_data).hexdigest()
+    payload["sig"] = sig
 
-# ================= METADATA =================
-metadata_dict = {
-    "device_id": DEVICE_ID,
-    "version": VERSION,
-    "hash": firmware_hash,
-    "timestamp": int(time.time())
-}
+    print("Sending payload:")
+    print(json.dumps(payload, indent=2))
 
-# IMPORTANT: compact JSON (NO spaces)
-metadata = json.dumps(metadata_dict, separators=(',', ':'))
+    try:
+        response = requests.post(
+            ESP_URL,
+            json=payload,
+            timeout=3
+        )
 
-print("Metadata:")
-print(metadata)
+        print("\nResponse:")
+        print("Status:", response.status_code)
+        print("Body:", response.text)
 
-# ================= LOAD PRIVATE KEY =================
-with open(PRIVATE_KEY_PATH, "rb") as f:
-    private_key = serialization.load_pem_private_key(
-        f.read(),
-        password=None,
-        backend=default_backend()
-    )
+    except requests.exceptions.RequestException as e:
+        print("Request failed:", e)
 
-# ================= SIGN =================
-signature = private_key.sign(
-    data=metadata.encode(),
-    signature_algorithm=ec.ECDSA(hashes.SHA256())
-)
-
-# Convert signature to base64 (DER format already correct)
-signature_b64 = base64.b64encode(signature).decode()
-
-print("\nSignature (base64):")
-print(signature_b64)
-
-# ================= SEND REQUEST =================
-files = {
-    "update": ("update.bin", firmware_data, "application/octet-stream")
-}
-
-data = {
-    "metadata": metadata,
-    "signature": signature_b64
-}
-
-print("\nUploading...")
-
-response = requests.post(ESP32_URL, files=files, data=data)
-
-print("\nResponse:")
-print(response.status_code)
-print(response.text)
+# ▶️ TEST
+if __name__ == "__main__":
+    send_command("motor_on")
+    # send_command("motor_off")

@@ -1,4 +1,3 @@
-#include <stdint.h>
 #include "web_dash.h"
 #include <WiFi.h>
 #include <ArduinoJson.h>
@@ -111,14 +110,16 @@ void web_dash_init() {
       // ⏱ Timestamp check (±30 sec)
       long now = time(NULL);
       if (abs(now - timestamp) > 30) {
+        Serial.println(now);
+        Serial.println(timestamp);
         request->send(403, "text/plain", "Expired request");
         return;
       }
 
       // Rebuild payload
       doc.remove("sig");
-      String payload;
-      serializeJson(doc, payload);
+      char payload[128];
+      snprintf(payload, sizeof(payload), "{\"action\":\"%s\",\"timestamp\":%ld,\"nonce\":\"%s\"}", action.c_str(), timestamp, nonce);
 
       String expected = hmac_sha256(payload, SECRET);
 
