@@ -38,7 +38,8 @@ void drawUI() {
 
   // ---- Title ----
   u8g2.setFont(u8g2_font_5x7_tr);
-  u8g2.drawStr(2, 10, "Water LvL");
+  u8g2.drawLine(50, 50, 128, 20);
+  u8g2.drawStr(50, 50, "Water LvL");
 
   // ---- Big percentage ----
   char buf[12];
@@ -46,31 +47,31 @@ void drawUI() {
   u8g2.setFont(u8g2_font_logisoso16_tr);
   u8g2.drawStr(5, 26, buf);
 
-  u8g2.drawLine(3, 31, 55, 31);
+  // u8g2.drawLine(3, 31, 55, 31);
 
-  // ---- Voltage ----
-  u8g2.setFont(u8g2_font_5x7_tr);
-  u8g2.drawStr(60, 40, "Voltage");
+  // // ---- Voltage ----
+  // u8g2.setFont(u8g2_font_5x7_tr);
+  // u8g2.drawStr(60, 40, "Voltage");
 
-  u8g2.setFont(u8g2_font_6x10_tr);
-  snprintf(buf, sizeof(buf), "%dV", voltage);
-  u8g2.drawStr(60, 52, buf);
+  // u8g2.setFont(u8g2_font_6x10_tr);
+  // snprintf(buf, sizeof(buf), "%dV", voltage);
+  // u8g2.drawStr(60, 52, buf);
 
-  u8g2.drawLine(55, 35, 55, 50);
+  // u8g2.drawLine(55, 35, 55, 50);
 
-  // ---- Volume ----
-  u8g2.setFont(u8g2_font_5x7_tr);
-  u8g2.drawStr(8, 40, "Volume");
+  // // ---- Volume ----
+  // u8g2.setFont(u8g2_font_5x7_tr);
+  // u8g2.drawStr(8, 40, "Volume");
 
-  u8g2.setFont(u8g2_font_6x10_tr);
-  snprintf(buf, sizeof(buf), "%dL", volume);
-  u8g2.drawStr(8, 52, buf);
+  // u8g2.setFont(u8g2_font_6x10_tr);
+  // snprintf(buf, sizeof(buf), "%dL", volume);
+  // u8g2.drawStr(8, 52, buf);
 
-  u8g2.drawLine(3, 53, 100, 53);
+  // u8g2.drawLine(3, 53, 100, 53);
 
-  // ---- Date & Time ----
-  u8g2.setFont(u8g2_font_5x7_tr);
-  u8g2.drawStr(5, 63, dateTime);
+  // // ---- Date & Time ----
+  // u8g2.setFont(u8g2_font_5x7_tr);
+  // u8g2.drawStr(5, 63, dateTime);
 
   // ---- Motor status ----
   if (isMotorOn) {
