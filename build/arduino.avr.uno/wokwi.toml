@@ -1,8 +1,8 @@
 [wokwi]
 version = 1
 #elf = "firmware.elf"
-firmware = "./build/arduino.avr.uno/wlms_v2.0.ino.hex"
-#firmware = "wlms_v2.0.ino.hex"
+#firmware = "./build/arduino.avr.uno/wlms_v2.0.ino.hex"
+firmware = "wlms_v2.0.ino.hex"
 
 # Forward http://localhost:8180 to port 80 on the simulated ESP32:
 [[net.forward]]
