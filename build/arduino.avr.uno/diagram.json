@@ -18,6 +18,14 @@
       "left": 58.4,
       "rotate": 90,
       "attrs": {}
+    },
+    {
+      "type": "wokwi-microsd-card",
+      "id": "sd1",
+      "top": -141.43,
+      "left": 102.67,
+      "rotate": 90,
+      "attrs": {}
     }
   ],
   "connections": [
@@ -28,7 +36,13 @@
     [ "rtc1:GND", "uno:GND.2", "black", [ "v-9.6", "h35.1" ] ],
     [ "rtc1:SDA", "uno:A4", "magenta", [ "v-38.4", "h0.3" ] ],
     [ "rtc1:SCL", "uno:A5", "cyan", [ "v-28.8", "h150.1" ] ],
-    [ "rtc1:5V", "uno:5V", "red", [ "v-19.2", "h38.8" ] ]
+    [ "rtc1:5V", "uno:5V", "red", [ "v-19.2", "h38.8" ] ],
+    [ "sd1:GND", "uno:GND.1", "black", [ "v48", "h-19.31" ] ],
+    [ "sd1:SCK", "uno:13", "purple", [ "v38.4", "h-19.19", "v37.8" ] ],
+    [ "sd1:VCC", "uno:5V", "red", [ "v9.6", "h-124.94", "v259.2", "h150.4" ] ],
+    [ "sd1:DI", "uno:11", "yellow", [ "h0.09", "v19.2", "h19.2" ] ],
+    [ "sd1:DO", "uno:12", "white", [ "v28.8", "h-28.81" ] ],
+    [ "sd1:CS", "uno:10", "blue", [ "v57.6", "h38.34" ] ]
   ],
   "dependencies": {}
 }
