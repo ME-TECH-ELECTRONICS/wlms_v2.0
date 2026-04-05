@@ -1,5 +1,5 @@
 #include <Arduino.h>
-#include <U8g2lib.h>
+// #include <U8g2lib.h>
 #include <Wire.h>
 #include "logger.h"
 #include "rtc.h"
@@ -8,7 +8,7 @@
 
 MyDS3231 rtc;
 // ---------- DISPLAY SETUP (Page buffer mode) ----------
-U8G2_SSD1306_128X64_NONAME_1_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
+// U8G2_SSD1306_128X64_NONAME_1_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
 
 // ---------- MOCK DATA (replace with real sensors) ----------
 int level = 84;     // %
@@ -21,36 +21,36 @@ bool isWifiConnected = true;
 const char* VERSION = "1.0.0";
 char dateTime[20] = "03-04-26 11:30";
 
-void welcomeScreen() {
+// void welcomeScreen() {
 
-  u8g2.firstPage();
-  do {
+//   u8g2.firstPage();
+//   do {
 
-    // ---- Background (white screen) ----
-    u8g2.setDrawColor(1);         // 1 = draw pixels
-    u8g2.drawBox(0, 0, 128, 64);  // filled white
+//     // ---- Background (white screen) ----
+//     u8g2.setDrawColor(1);         // 1 = draw pixels
+//     u8g2.drawBox(0, 0, 128, 64);  // filled white
 
-    // ---- Invert text (black on white) ----
-    u8g2.setDrawColor(0);  // 0 = clear pixels (black text)
+//     // ---- Invert text (black on white) ----
+//     u8g2.setDrawColor(0);  // 0 = clear pixels (black text)
 
-    // ---- "WLMS" (large text) ----
-    u8g2.setFont(u8g2_font_logisoso24_tr);  // similar to size 3
-    u8g2.drawStr(15, 30, "WLMS");
+//     // ---- "WLMS" (large text) ----
+//     u8g2.setFont(u8g2_font_logisoso24_tr);  // similar to size 3
+//     u8g2.drawStr(15, 30, "WLMS");
 
-    // ---- Version ----
-    char buf[16];
-    snprintf(buf, sizeof(buf), "v%s", VERSION);
+//     // ---- Version ----
+//     char buf[16];
+//     snprintf(buf, sizeof(buf), "v%s", VERSION);
 
-    u8g2.setFont(u8g2_font_ncenB08_tr);
-    u8g2.drawStr(82, 30, buf);
+//     u8g2.setFont(u8g2_font_ncenB08_tr);
+//     u8g2.drawStr(82, 30, buf);
 
-    // ---- Footer ----
-    u8g2.setFont(u8g2_font_6x13_tr);
-    u8g2.drawStr(20, 55, "Made By METECH");
-    u8g2.setDrawColor(1);
+//     // ---- Footer ----
+//     u8g2.setFont(u8g2_font_6x13_tr);
+//     u8g2.drawStr(20, 55, "Made By METECH");
+//     u8g2.setDrawColor(1);
 
-  } while (u8g2.nextPage());
-}
+//   } while (u8g2.nextPage());
+// }
 
 // ---------- UI DRAW FUNCTION ----------
 // void drawUI() {
@@ -118,34 +118,33 @@ void welcomeScreen() {
 
 // ---------- SETUP ----------
 void setup() {
-  Serial.begin(9600);
-  rtc.begin();
-  initLogger(&SD, &rtc);
+    Serial.begin(115200);
 
-  if (!SD.begin(SD_CS)) {
-    Serial.println("SD init failed!");
-    return;
-  }
-  // u8g2.begin();
-  // welcomeScreen();
-  delay(3000);
-  rtc.formatDateTime(dateTime);
-  char line[64];
-  snprintf(line, sizeof(line), "%s,%d,%d,%d", dateTime, 84, 230, 1);
-  appendCSV(line);
+    if (!SD.begin(SD_CS)) {
+        Serial.println("SD init failed!");
+        return;
+    }
+    Serial.println("SD init success");
+
+    // u8g2.begin();
+    // welcomeScreen();
+    delay(3000);
+    char line[64];
+    appendCSV("this is an test");
+    snprintf(line, sizeof(line), "%s,%d,%d,%d", dateTime, 84, 230, 1);
 }
 
 // ---------- LOOP ----------
 void loop() {
 
-  // drawUI();
-  delay(1000);
-  char buf[20];
-  // rtc.formatDateTime(dateTime);
+    // drawUI();
+    delay(1000);
+    char buf[20];
+    // rtc.formatDateTime(dateTime);
 
-  // Serial.println(buf);  // Example: 04/04/26 11:30
+    // Serial.println(buf);  // Example: 04/04/26 11:30
 
-  // ---- Demo animation (remove in real project) ----
-  level += 2;
-  if (level > 100) level = 0;
+    // ---- Demo animation (remove in real project) ----
+    level += 2;
+    if (level > 100) level = 0;
 }

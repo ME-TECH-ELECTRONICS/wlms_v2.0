@@ -2,10 +2,7 @@
 
 #include <Arduino.h>
 #include <SD.h>
-#include "rtc.h"
 
-// Init
-void initLogger(SDClass* sdRef, MyDS3231* rtcRef);
 
 // Write
 void appendCSV(const char* data);
