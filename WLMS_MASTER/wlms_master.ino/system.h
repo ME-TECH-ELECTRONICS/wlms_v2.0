@@ -31,7 +31,14 @@ struct SystemState {
     uint32_t lastRetryTime;
 };
 
+struct SensorPacket {
+    uint8_t level;
+    int8_t temp;
+    uint8_t checksum;
+};
+
 // 🔥 ONLY DECLARE here (no memory allocation)
 extern SystemState sys;
 extern SemaphoreHandle_t sysMutex;
+extern SemaphoreHandle_t spiMutex;
 extern QueueHandle_t logQueue;

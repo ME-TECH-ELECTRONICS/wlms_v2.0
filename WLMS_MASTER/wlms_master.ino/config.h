@@ -54,12 +54,3 @@ enum State {
     STATE_MANUAL,
     STATE_FAULT
 };
-
-extern volatile bool otaReady;
-
-static const char* PUBLIC_KEY = R"KEY(
------BEGIN PUBLIC KEY-----
-MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEl8JZcxlOqF5fxkZc9eKPbsOgvbrk
-ILuK9WTVab3lytxopKCrkIcK53yZsAmjbhzx9CKuoFlxwP/Nl6SVTvujRw==
------END PUBLIC KEY-----
-)KEY";

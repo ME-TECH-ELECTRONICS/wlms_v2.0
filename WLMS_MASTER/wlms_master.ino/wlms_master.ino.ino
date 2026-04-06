@@ -1,10 +1,10 @@
 #include <WiFi.h>
-#include <LoRa.h>
 #include "config.h"
 #include "system.h"
 #include "fsm_controller.h"
 #include "display.h"
 #include "web_dash.h"
+#include "lora_rx.h"
 
 time_t RTCnow;
 struct tm timeinfo;
@@ -78,30 +78,13 @@ void setup() {
 
   Serial.println("Web Dashboard is ready!");
   Serial.println("Open: http://" + WiFi.localIP().toString());
-  Serial.print(VERSION);
   sysMutex = xSemaphoreCreateMutex();
+  spiMutex = xSemaphoreCreateMutex();
   // logQueue = xQueueCreate(10, sizeof(LogMsg));
-  LoRa.setPins(1, 2, 3);
-  if (!LoRa.begin(433E6)) {  // Change to 868E6 or 915E6 if needed
-    Serial.println("LoRa init failed!");
-    while (1)
-      ;
-  }
   xTaskCreatePinnedToCore(control_task, "control", 4096, NULL, 3, NULL, 1);
+  xTaskCreatePinnedToCore(loraTask, "LoRa", 4096, NULL, 3, NULL, 1);
 }
 
 void loop() {
-  int packetSize = LoRa.parsePacket();
-
-  if (packetSize) {
-    Serial.print("Received packet: ");
-
-    while (LoRa.available()) {
-      char c = (char)LoRa.read();
-      Serial.print(c);
-    }
-
-    Serial.print(" | RSSI: ");
-    Serial.println(LoRa.packetRssi());
-  }
+  
 }
