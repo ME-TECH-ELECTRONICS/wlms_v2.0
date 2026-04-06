@@ -1,107 +1,68 @@
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
-#include <Wire.h>
+#include "display.h"
+#include <U8g2lib.h>
 #include "config.h"
 
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
-
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
+U8G2_SSD1306_128X64_NONAME_1_HW_I2C display(U8G2_R0, U8X8_PIN_NONE);
 
 void initDisplay() {
-    if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-        while (1); // or log error
-    }
-
-    display.clearDisplay();
-    display.setTextColor(WHITE);
-    display.setTextSize(1);
-    display.setCursor(0, 0);
-    display.display();
+  if (!display.begin()) {
+    while (1)
+      ;
+  }
 }
 
 void welcomeScreen() {
-    display.clearDisplay();
-    display.fillRect(0, 0, 128, 64, 1);
-    display.setTextColor(BLACK, WHITE);
-    display.setCursor(15, 10);
-    display.setTextSize(3);
-    display.print("WLMS");
-    display.setTextColor(BLACK, WHITE);
-    display.setCursor(90, 23);
-    display.setTextSize(1);
-    display.printf("v%s", VERSION);
-    display.setTextColor(BLACK, WHITE);
-    display.setCursor(20, 45);
-    display.print("Made By METECH");
-    display.display();
+  display.firstPage();
+  do {
+    display.setDrawColor(1);
+    display.drawBox(0, 0, 128, 64);
+    display.setDrawColor(0);
+    display.setFont(u8g2_font_logisoso24_tr);  // similar to size 3
+    display.drawStr(15, 30, "WLMS");
+    char buf[16];
+    snprintf(buf, sizeof(buf), "v%s", VERSION);
+    display.setFont(u8g2_font_ncenB08_tr);
+    display.drawStr(82, 30, buf);
+    display.setFont(u8g2_font_6x13_tr);
+    display.drawStr(20, 55, "Made By METECH");
+    display.setDrawColor(1);
+  } while (display.nextPage());
 }
 
-void updateDisplay(uint8_t level, uint16_t voltage, uint8_t volume, const char* dateTime, bool isMotorOn = false, bool isWifiConnected = false, bool isMainsCut = false) {
-    display.clearDisplay();
-    //Water level indictor
-    display.drawRect(108, 4, 20, 60, 1);
-    display.drawLine(108, 58, 110, 58, 1);
-    display.drawLine(108, 52, 110, 52, 1);
-    display.drawLine(108, 46, 110, 46, 1);
-    display.drawLine(108, 40, 110, 40, 1);
-    display.drawLine(108, 34, 110, 34, 1);
-    display.drawLine(108, 28, 110, 28, 1);
-    display.drawLine(108, 22, 110, 22, 1);
-    display.drawLine(108, 16, 110, 16, 1);
-    display.drawLine(108, 10, 110, 10, 1);
-    display.drawLine(108, 4, 110, 4, 1);
-
-    display.setCursor(3, 3);
-    display.setTextSize(1);
-    display.print("Water LvL");
-    display.setCursor(5, 15);
-    display.setTextSize(2);
-    display.printf("%d%%", level);
-    display.drawLine(3, 31, 55, 31, 1);
-
-    display.setTextSize(1);
-    display.setCursor(60, 34);
-    display.print("Voltage");
-    display.setCursor(60, 44);
-    display.printf("%dV", voltage);
-    display.drawLine(55, 35, 55, 50, 1);
-
-    display.setCursor(8, 34);
-    display.print("Volume");
-    display.setCursor(8, 44);
-    display.printf("%dL", volume);
-    display.drawLine(3, 53, 100, 53, 1);
-
-    display.setCursor(5, 56);
-    display.setTextSize(1);
-    display.print(dateTime);
-
-    // Status icons
-    if(isMotorOn) {
-        display.drawRect(60, 5, 45, 25, 1);
-        display.drawCircle(72, 17, 7, 1);
-        display.setCursor(70, 14);
-        display.print("M");
+void updateDisplay(uint8_t level, uint16_t voltage, uint16_t volume, const char* dateTime, bool isMotorOn, bool isWifiConnected, bool isMainsCut) {
+  display.firstPage();
+  do {
+    display.drawFrame(108, 4, 20, 60);
+    int fillHeight = map(level, 0, 100, 0, 58);
+    display.drawBox(109, 63 - fillHeight, 18, fillHeight);
+    for (int y = 4; y < 60; y += 6) {
+      display.drawLine(108, y, 110, y);
     }
-    if(!isMainsCut) {
-        display.drawCircle(92, 17, 7, 1);
-        display.setCursor(88, 14);
-        display.setTextSize(2);
-        display.print("~");
+    char buf[12];
+    snprintf(buf, sizeof(buf), "%d%%", level);
+    display.setFont(u8g2_font_logisoso16_tr);
+    display.drawStr(1, 20, buf);
+    display.drawLine(0, 25, 100, 25);
+    snprintf(buf, sizeof(buf), "%dV", voltage);
+    display.drawStr(60, 46, buf);
+    display.drawLine(55, 26, 55, 49);
+    snprintf(buf, sizeof(buf), "%dL", volume);
+    display.drawStr(1, 46, buf);
+    display.drawLine(0, 50, 100, 50);
+    display.setFont(u8g2_font_6x13_tr);
+    display.drawStr(0, 62, dateTime);
+    if (isMotorOn) {
+      display.drawCircle(60, 10, 10);
+      display.drawStr(58, 15, "M");
     }
-
-    if(isWifiConnected) {
-        display.fillTriangle(93, 63, 103, 63, 103, 55, 1);
-        display.drawLine(102, 57, 102, 62, 0);
+    if (!isMainsCut) {
+      display.drawCircle(88, 10, 10);
+      display.setFont(u8g2_font_6x10_tr);
+      display.drawStr(83, 14, "AC");
     }
-    
-    int bars = level / 5;
-    int startY = 61;
-    int step   = 3; 
-    for (int i = 0; i < bars; i++) {
-        int y = startY - (i * step);
-        display.fillRect(109, y, 20, 3, 1);
+    if (isWifiConnected) {
+      display.setFont(u8g2_font_open_iconic_all_1x_t);
+      display.drawGlyph(95, 62, 0x00f8);
     }
-    display.display();
+  } while (display.nextPage());
 }

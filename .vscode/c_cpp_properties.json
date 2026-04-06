@@ -16,6 +16,7 @@
                 "C:\\Users\\MELVIN\\AppData\\Local\\Arduino15\\packages\\esp32\\tools\\esp32-libs\\3.3.7\\qio_qspi\\include",
                 "C:\\Users\\MELVIN\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.7\\cores\\esp32",
                 "C:\\Users\\MELVIN\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.7\\variants\\esp32",
+                "C:\\Users\\MELVIN\\Documents\\Arduino\\libraries\\U8g2\\src",
                 "C:\\Users\\MELVIN\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.7\\libraries\\Wire\\src",
                 "C:\\Users\\MELVIN\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.7\\libraries\\SD\\src",
                 "C:\\Users\\MELVIN\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.7\\libraries\\FS\\src",

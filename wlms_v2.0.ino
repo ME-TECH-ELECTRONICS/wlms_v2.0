@@ -1,14 +1,14 @@
 #include <Arduino.h>
-// #include <U8g2lib.h>
+#include <U8g2lib.h>
 #include <Wire.h>
-#include "logger.h"
+// #include "logger.h"
 #include "rtc.h"
 
 #define SD_CS 10
 
 MyDS3231 rtc;
 // ---------- DISPLAY SETUP (Page buffer mode) ----------
-// U8G2_SSD1306_128X64_NONAME_1_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
+U8G2_SSD1306_128X64_NONAME_1_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE);
 
 // ---------- MOCK DATA (replace with real sensors) ----------
 int level = 84;     // %
@@ -53,91 +53,90 @@ char dateTime[20] = "03-04-26 11:30";
 // }
 
 // ---------- UI DRAW FUNCTION ----------
-// void drawUI() {
-//   u8g2.firstPage();
-//   do {
-//     // ---- Tank outline ----
-//     u8g2.drawFrame(108, 4, 20, 60);
+void drawUI() {
+  u8g2.firstPage();
+  do {
+    // ---- Tank outline ----
+    u8g2.drawFrame(108, 4, 20, 60);
 
-//     // ---- Smooth water fill ----
-//     int fillHeight = map(level, 0, 100, 0, 58);
-//     u8g2.drawBox(109, 63 - fillHeight, 18, fillHeight);
+    // ---- Smooth water fill ----
+    int fillHeight = map(level, 0, 100, 0, 58);
+    u8g2.drawBox(109, 63 - fillHeight, 18, fillHeight);
 
-//     // ---- Tank markers ----
-//     for (int y = 4; y < 60; y += 6) {
-//       u8g2.drawLine(108, y, 110, y);
-//     }
+    // ---- Tank markers ----
+    for (int y = 4; y < 60; y += 6) {
+      u8g2.drawLine(108, y, 110, y);
+    }
 
-//     // ---- Big percentage ----
-//     char buf[12];
-//     snprintf(buf, sizeof(buf), "%d%%", level);
-//     u8g2.setFont(u8g2_font_logisoso16_tr);
-//     u8g2.drawStr(1, 20, buf);
+    // ---- Big percentage ----
+    char buf[12];
+    snprintf(buf, sizeof(buf), "%d%%", level);
+    u8g2.setFont(u8g2_font_logisoso16_tr);
+    u8g2.drawStr(1, 20, buf);
 
-//     u8g2.drawLine(0, 25, 100, 25);
+    u8g2.drawLine(0, 25, 100, 25);
 
-//     u8g2.setFont(u8g2_font_logisoso16_tr);
-//     snprintf(buf, sizeof(buf), "%dV", voltage);
-//     u8g2.drawStr(60, 46, buf);
+    snprintf(buf, sizeof(buf), "%dV", voltage);
+    u8g2.drawStr(60, 46, buf);
 
-//     u8g2.drawLine(55, 26, 55, 49);
+    u8g2.drawLine(55, 26, 55, 49);
 
-//     // ---- Volume ----
-//     u8g2.setFont(u8g2_font_logisoso16_tr);
-//     snprintf(buf, sizeof(buf), "%dL", volume);
-//     u8g2.drawStr(1, 46, buf);
+    // ---- Volume ----
 
-//     u8g2.drawLine(0, 50, 100, 50);
+    snprintf(buf, sizeof(buf), "%dL", volume);
+    u8g2.drawStr(1, 46, buf);
 
-//     // // ---- Date & Time ----
-//     u8g2.setFont(u8g2_font_6x13_tr);
-//     u8g2.drawStr(0, 62, dateTime);
+    u8g2.drawLine(0, 50, 100, 50);
 
-//     // ---- Motor status ----
-//     if (isMotorOn) {
-//       // u8g2.drawFrame(60, 5, 45, 25);
-//       u8g2.drawCircle(60, 10, 10);
-//       u8g2.drawStr(58, 15, "M");
-//     }
+    // // ---- Date & Time ----
+    u8g2.setFont(u8g2_font_6x12_tr);
+    u8g2.drawStr(0, 61, dateTime);
 
-//     // ---- Mains status (~) ----
-//     if (!isMainsCut) {
-//       u8g2.drawCircle(88, 10, 10);
-//       u8g2.setFont(u8g2_font_6x10_tr);
-//       u8g2.drawStr(83, 14, "AC");
-//     }
+    // ---- Motor status ----
+    if (isMotorOn) {
+      // u8g2.drawFrame(60, 5, 45, 25);
+      u8g2.drawCircle(60, 10, 10);
+      u8g2.drawStr(58, 15, "M");
+    }
 
-//     // ---- WiFi icon ----
-//     if (isWifiConnected) {
-//       // u8g2.drawXBMP(95, 54, 8, 8, wifi_icon);
-//       u8g2.setFont(u8g2_font_open_iconic_all_1x_t);
-//       u8g2.drawGlyph(95, 62, 0x00f8);  // star icon
-//     }
-//   } while (u8g2.nextPage());
-// }
+    // ---- Mains status (~) ----
+    if (!isMainsCut) {
+      u8g2.drawCircle(88, 10, 10);
+
+      u8g2.drawStr(83, 14, "AC");
+    }
+
+    // ---- WiFi icon ----
+    if (isWifiConnected) {
+      // u8g2.drawXBMP(95, 54, 8, 8, wifi_icon);
+      u8g2.setFont(u8g2_font_open_iconic_all_1x_t);
+      u8g2.drawGlyph(95, 62, 0x00f8);  // star icon
+    }
+  } while (u8g2.nextPage());
+}
 
 // ---------- SETUP ----------
 void setup() {
     Serial.begin(115200);
 
-    if (!SD.begin(SD_CS)) {
-        Serial.println("SD init failed!");
-        return;
-    }
+    // if (!SD.begin(SD_CS)) {
+    //     Serial.println("SD init failed!");
+    //     return;
+    // }
     Serial.println("SD init success");
 
-    // u8g2.begin();
+    u8g2.begin();
     // welcomeScreen();
     delay(3000);
-    char line[64];
-    appendCSV("this is an test");
-    snprintf(line, sizeof(line), "%s,%d,%d,%d", dateTime, 84, 230, 1);
+    // char line[64];
+    // appendCSV("this is an test");
+    // snprintf(line, sizeof(line), "%s,%d,%d,%d", dateTime, 84, 230, 1);
 }
 
 // ---------- LOOP ----------
 void loop() {
 
-    // drawUI();
+    drawUI();
     delay(1000);
     char buf[20];
     // rtc.formatDateTime(dateTime);

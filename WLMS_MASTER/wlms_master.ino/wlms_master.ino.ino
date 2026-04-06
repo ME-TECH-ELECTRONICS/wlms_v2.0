@@ -1,72 +1,107 @@
 #include <WiFi.h>
+#include <LoRa.h>
 #include "config.h"
 #include "system.h"
 #include "fsm_controller.h"
 #include "display.h"
 #include "web_dash.h"
-#define FORMAT_SPIFFS_IF_FAILED true
+
 time_t RTCnow;
 struct tm timeinfo;
-void setup() {
-    Serial.begin(115200);
-    pinMode(MODE_BTN, INPUT_PULLUP);
-    pinMode(MANUAL_BTN, INPUT_PULLUP);
-    pinMode(MOTOR, OUTPUT);
-    pinMode(MOTOR_STATUS_LED, OUTPUT);
-    pinMode(MODE_LED_RED, OUTPUT);
-    pinMode(MODE_LED_GREEN, OUTPUT);
-    pinMode(VOLTAGE_SENS, INPUT);
-    digitalWrite(MOTOR, LOW);
-    digitalWrite(MOTOR_STATUS_LED, LOW);
-    digitalWrite(MODE_LED_RED, LOW);
-    digitalWrite(MODE_LED_GREEN, HIGH);
 
-    uint32_t now = millis();
-    sys.mode = MODE_AUTO;
-    sys.state = STATE_IDLE;
-    sys.start_th = MOTOR_START_THRESHOLD;
-    sys.stop_th  = MOTOR_STOP_THRESHOLD;
-    sys.level = 0;
-    sys.fault = false;
-    sys.lastRetryTime = now;
-    sys.dryRunLockUntil = now;
-    sys.lastDryCheckTime = now;
-    sys.lastDryCheckLevel = sys.level;
-    sys.dryRunRetries = 0;
-    sys.lastLevelUpdate = now;
-    initDisplay();
-    welcomeScreen();
-    delay(3000);
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(ACCESS_POINT_SSID, ACCESS_POINT_PASSWORD);
-    Serial.print("Connecting to WiFi");
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-        Serial.print(".");
-    }
-    configTime(0, 0, "pool.ntp.org", "time.nist.gov");
-    while (true) {
-        time(&RTCnow);
-        localtime_r(&RTCnow, &timeinfo);
+#include <WiFi.h>
 
-        if (timeinfo.tm_year > (2020 - 1900)) {
-            break; // valid time
-        }
+void WiFiEvent(WiFiEvent_t event) {
+  switch (event) {
+    case ARDUINO_EVENT_WIFI_STA_DISCONNECTED:
+      WiFi.reconnect();
+      break;
 
-        delay(500);
-        Serial.print(".");
-    } 
-    web_dash_init();
+    case ARDUINO_EVENT_WIFI_STA_CONNECTED:
+      break;
 
-    Serial.println("Web Dashboard is ready!");
-    Serial.println("Open: http://" + WiFi.localIP().toString());
-    Serial.print(VERSION);
-    sysMutex = xSemaphoreCreateMutex();
-    // logQueue = xQueueCreate(10, sizeof(LogMsg));
+    case ARDUINO_EVENT_WIFI_STA_GOT_IP:
+      break;
 
-    xTaskCreatePinnedToCore(control_task, "control", 4096, NULL, 3, NULL, 1);
+    default:
+      break;
+  }
 }
 
-void loop() {}
+void setup() {
+  Serial.begin(115200);
+  pinMode(MODE_BTN, INPUT_PULLUP);
+  pinMode(MANUAL_BTN, INPUT_PULLUP);
+  pinMode(MOTOR, OUTPUT);
+  pinMode(MOTOR_STATUS_LED, OUTPUT);
+  pinMode(MODE_LED_RED, OUTPUT);
+  pinMode(MODE_LED_GREEN, OUTPUT);
+  pinMode(VOLTAGE_SENS, INPUT);
+  digitalWrite(MOTOR, LOW);
+  digitalWrite(MOTOR_STATUS_LED, LOW);
+  digitalWrite(MODE_LED_RED, LOW);
+  digitalWrite(MODE_LED_GREEN, HIGH);
 
+  uint32_t now = millis();
+  sys.mode = MODE_AUTO;
+  sys.state = STATE_IDLE;
+  sys.start_th = MOTOR_START_THRESHOLD;
+  sys.stop_th = MOTOR_STOP_THRESHOLD;
+  sys.level = 0;
+  sys.fault = false;
+  sys.lastRetryTime = now;
+  sys.dryRunLockUntil = now;
+  sys.lastDryCheckTime = now;
+  sys.lastDryCheckLevel = sys.level;
+  sys.dryRunRetries = 0;
+  sys.lastLevelUpdate = now;
+  initDisplay();
+  welcomeScreen();
+  delay(3000);
+  WiFi.onEvent(WiFiEvent);
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(ACCESS_POINT_SSID, ACCESS_POINT_PASSWORD);
+  Serial.print("Connecting to WiFi");
+  configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+  while (true) {
+    time(&RTCnow);
+    localtime_r(&RTCnow, &timeinfo);
 
+    if (timeinfo.tm_year > (2020 - 1900)) {
+      break;  // valid time
+    }
+
+    delay(500);
+    Serial.print(".");
+  }
+  web_dash_init();
+
+  Serial.println("Web Dashboard is ready!");
+  Serial.println("Open: http://" + WiFi.localIP().toString());
+  Serial.print(VERSION);
+  sysMutex = xSemaphoreCreateMutex();
+  // logQueue = xQueueCreate(10, sizeof(LogMsg));
+  LoRa.setPins(1, 2, 3);
+  if (!LoRa.begin(433E6)) {  // Change to 868E6 or 915E6 if needed
+    Serial.println("LoRa init failed!");
+    while (1)
+      ;
+  }
+  xTaskCreatePinnedToCore(control_task, "control", 4096, NULL, 3, NULL, 1);
+}
+
+void loop() {
+  int packetSize = LoRa.parsePacket();
+
+  if (packetSize) {
+    Serial.print("Received packet: ");
+
+    while (LoRa.available()) {
+      char c = (char)LoRa.read();
+      Serial.print(c);
+    }
+
+    Serial.print(" | RSSI: ");
+    Serial.println(LoRa.packetRssi());
+  }
+}
