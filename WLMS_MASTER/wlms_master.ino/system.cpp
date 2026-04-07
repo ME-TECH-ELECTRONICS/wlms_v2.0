@@ -6,4 +6,4 @@ SemaphoreHandle_t sysMutex;
 SemaphoreHandle_t spiMutex;
 SemaphoreHandle_t i2cMutex;
 QueueHandle_t logQueue;
-volatile bool otaReady = false;
+TaskHandle_t displayHandle;

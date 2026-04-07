@@ -44,3 +44,5 @@ extern SemaphoreHandle_t sysMutex;
 extern SemaphoreHandle_t spiMutex;
 extern SemaphoreHandle_t i2cMutex;
 extern QueueHandle_t logQueue;
+
+extern TaskHandle_t displayHandle;

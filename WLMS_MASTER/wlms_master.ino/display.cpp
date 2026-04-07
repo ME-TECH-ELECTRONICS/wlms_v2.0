@@ -8,6 +8,29 @@
 U8G2_SSD1306_128X64_NONAME_1_HW_I2C display(U8G2_R0, U8X8_PIN_NONE);
 MyDS3231& rtc = MyDS3231::getInstance();
 
+inline char* utoa_fast(uint32_t val, char* buf) {
+  char* p = buf;
+
+  if (val == 0) {
+    *p++ = '0';
+  } else {
+    char tmp[10];
+    int i = 0;
+
+    while (val) {
+      tmp[i++] = '0' + (val % 10);
+      val /= 10;
+    }
+
+    while (i--) {
+      *p++ = tmp[i];
+    }
+  }
+
+  *p = '\0';
+  return p;  // returns end pointer
+}
+
 void initDisplay() {
   if (!display.begin()) {
     while (1)
@@ -43,14 +66,20 @@ void updateDisplay(uint8_t level, uint16_t voltage, uint16_t volume, const char*
       display.drawLine(108, y, 110, y);
     }
     char buf[12];
-    snprintf(buf, sizeof(buf), "%d%%", level);
+    char* p = utoa_fast(level, buf);
+    *p++ = '%';
+    *p = '\0';
     display.setFont(u8g2_font_logisoso16_tr);
     display.drawStr(1, 20, buf);
     display.drawLine(0, 25, 100, 25);
-    snprintf(buf, sizeof(buf), "%dV", voltage);
+    p = utoa_fast(voltage, buf);
+    *p++ = 'V';
+    *p = '\0';
     display.drawStr(60, 46, buf);
     display.drawLine(55, 26, 55, 49);
-    snprintf(buf, sizeof(buf), "%dL", volume);
+    p = utoa_fast(volume, buf);
+    *p++ = 'L';
+    *p = '\0';
     display.drawStr(1, 46, buf);
     display.drawLine(0, 50, 100, 50);
     display.setFont(u8g2_font_6x13_tr);
@@ -73,7 +102,7 @@ void updateDisplay(uint8_t level, uint16_t voltage, uint16_t volume, const char*
 
 void displayTask(void* pv) {
   while (1) {
-     SystemState local;
+    SystemState local;
 
     xSemaphoreTake(sysMutex, portMAX_DELAY);
     local = sys;

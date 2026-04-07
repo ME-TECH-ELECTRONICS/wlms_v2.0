@@ -1,3 +1,4 @@
+#include "driver/adc_types_legacy.h"
 #include <stdint.h>
 #pragma once
 
@@ -10,7 +11,7 @@ constexpr uint8_t MODE_LED_RED = 25;
 constexpr uint8_t MODE_LED_GREEN = 26;
 constexpr uint8_t MODE_BTN = 27;
 constexpr uint8_t MANUAL_BTN = 14;
-constexpr uint8_t VOLTAGE_SENS = 13;
+constexpr adc1_channel_t VOLTAGE_SENS = ADC1_CHANNEL_6;
 constexpr uint8_t LORA_RST = 16;
 constexpr uint8_t LORA_D0 = 4;
 constexpr uint8_t LORA_CHIP_SELECT = 5;
@@ -34,8 +35,10 @@ constexpr uint8_t DRYRUN_MAX_RETRIES = 2;
 constexpr uint32_t SENSOR_TIMEOUT_MS = 30000UL;
 constexpr uint32_t MAX_MOTOR_RUNTIME_MS = (20UL * 60UL * 1000UL);
 
-constexpr char const* ACCESS_POINT_SSID = "METECH";
-constexpr char const* ACCESS_POINT_PASSWORD = "METECH@3152";
+// constexpr char const* ACCESS_POINT_SSID = "METECH";
+// constexpr char const* ACCESS_POINT_PASSWORD = "METECH@3152";
+constexpr char const* ACCESS_POINT_SSID = "Wokwi-GUEST";
+constexpr char const* ACCESS_POINT_PASSWORD = "";
 
 constexpr char const* SECRET = "3e3c9fe7e5d099e1013e8f20c52b46ff0cea526d7bf472fc3195a928284300ce";
 

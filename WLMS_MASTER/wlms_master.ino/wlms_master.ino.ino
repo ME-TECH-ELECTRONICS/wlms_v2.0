@@ -28,6 +28,38 @@ void WiFiEvent(WiFiEvent_t event) {
   }
 }
 
+void printTaskStats() {
+    UBaseType_t taskCount = uxTaskGetNumberOfTasks();
+    TaskStatus_t *taskArray = (TaskStatus_t *)malloc(taskCount * sizeof(TaskStatus_t));
+
+    if (!taskArray) return;
+
+    uint32_t totalRuntime;
+    taskCount = uxTaskGetSystemState(taskArray, taskCount, &totalRuntime);
+
+    Serial.println("\n===== Task Stats =====");
+
+    for (int i = 0; i < taskCount; i++) {
+        Serial.printf("Name: %s | Core: %d | Prio: %d | State: %d | Stack Left: %d words (%d bytes)\n",
+            taskArray[i].pcTaskName,
+            taskArray[i].xCoreID,
+            taskArray[i].uxCurrentPriority,
+            taskArray[i].eCurrentState,
+            taskArray[i].usStackHighWaterMark,
+            taskArray[i].usStackHighWaterMark * 4
+        );
+    }
+    Serial.println("\n==========================");
+    free(taskArray);
+}
+
+void monitorTask(void* pv) {
+  while (1) {
+    printTaskStats();
+    vTaskDelay(pdMS_TO_TICKS(2000));
+  }
+}
+
 void setup() {
   Serial.begin(115200);
   pinMode(MODE_BTN, INPUT_PULLUP);
@@ -83,7 +115,9 @@ void setup() {
   i2cMutex = xSemaphoreCreateMutex();
   // logQueue = xQueueCreate(10, sizeof(LogMsg));
   xTaskCreatePinnedToCore(control_task, "control", 4096, NULL, 3, NULL, 1);
-  xTaskCreatePinnedToCore(loraTask, "LoRa", 4096, NULL, 3, NULL, 1);
+  // xTaskCreatePinnedToCore(loraTask, "LoRa", 4096, NULL, 3, NULL, 1);
+  xTaskCreatePinnedToCore(displayTask, "Display", 1700, NULL, 3, &displayHandle, 1);
+  xTaskCreatePinnedToCore(monitorTask, "Monitor", 2048, NULL, 3, NULL, 1);
 }
 
 void loop() {

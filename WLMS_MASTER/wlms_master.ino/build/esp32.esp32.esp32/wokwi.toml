@@ -1,0 +1,10 @@
+[wokwi]
+version = 1
+#elf = "wlms_master.ino.ino.elf"
+#firmware = "./build/arduino.avr.uno/wlms_v2.0.ino.hex"
+firmware = "wlms_master.ino.ino.bin"
+
+# Forward http://localhost:8180 to port 80 on the simulated ESP32:
+[[net.forward]]
+from = "localhost:8180"
+to = "target:80"
