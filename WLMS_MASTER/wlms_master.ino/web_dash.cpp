@@ -12,7 +12,7 @@ const uint8_t NONCE_LEN = 17;  // 16 chars + null
 unsigned long lastRequestTime = 0;
 char usedNonces[NONCE_HISTORY][NONCE_LEN];
 int nonceIndex = 0;
-const char *SECRET = "3e3c9fe7e5d099e1013e8f20c52b46ff0cea526d7bf472fc3195a928284300ce";
+
 
 static AsyncWebServer server(80);
 IPAddress trustedServer(10, 174, 113, 67);

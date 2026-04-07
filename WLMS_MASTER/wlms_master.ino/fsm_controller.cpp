@@ -16,176 +16,193 @@ inline void motor_off() {
 
 inline void log_event(const char* msg) {
     __asm__ __volatile__("nop");
-}      
+}
 
 void control_task(void *pv) {
     while (1) {
         uint32_t now = millis();
+
+        // -------- STEP 1: COPY SHARED STATE --------
+        SystemState local;
+        xSemaphoreTake(sysMutex, portMAX_DELAY);
+        local = sys;
+        xSemaphoreGive(sysMutex);
+
+        // -------- LOCAL FLAGS --------
         bool logNeeded = false;
         const char* logMsg = NULL;
-        xSemaphoreTake(sysMutex, portMAX_DELAY);
-        
-        if (sys.state == STATE_FAULT) {
-            xSemaphoreGive(sysMutex);
+
+        bool turnMotorOn = false;
+        bool turnMotorOff = false;
+
+        // -------- FSM LOGIC (NO MUTEX) --------
+
+        if (local.state == STATE_FAULT) {
             vTaskDelay(pdMS_TO_TICKS(200));
             continue;
         }
 
         // Sensor timeout
-        if ((now - sys.lastLevelUpdate) > SENSOR_TIMEOUT_MS) {
-            if (sys.motor) motor_off();
-            sys.motor = false;
-            sys.state = STATE_FAULT;
-            sys.fault = true;
+        if ((now - local.lastLevelUpdate) > SENSOR_TIMEOUT_MS) {
+            turnMotorOff = true;
+            local.motor = false;
+            local.state = STATE_FAULT;
+            local.fault = true;
             logNeeded = true;
             logMsg = "FAULT: SENSOR TIMEOUT";
         }
 
         // Motor runtime limit
-        if (sys.motor && (now - sys.motorStartTime > MAX_MOTOR_RUNTIME_MS)) {
-            if (sys.motor) motor_off();
-            sys.motor = false;
-            sys.state = STATE_FAULT;
-            sys.fault = true;
+        if (local.motor && (now - local.motorStartTime > MAX_MOTOR_RUNTIME_MS)) {
+            turnMotorOff = true;
+            local.motor = false;
+            local.state = STATE_FAULT;
+            local.fault = true;
             logNeeded = true;
-            logMsg ="FAULT: MOTOR TIMEOUT";
+            logMsg = "FAULT: MOTOR TIMEOUT";
         }
 
-        switch (sys.state) {
+        switch (local.state) {
 
             case STATE_IDLE:
-                sys.state = STATE_WAIT_LOW;
+                local.state = STATE_WAIT_LOW;
                 break;
-    
+
             case STATE_WAIT_LOW:
-                if (sys.mode == MODE_AUTO && sys.level <= sys.start_th - 2) {
-                    sys.state = STATE_STARTING;
+                if (local.mode == MODE_AUTO && local.level <= local.start_th - 2) {
+                    local.state = STATE_STARTING;
                     logNeeded = true;
-                    logMsg ="LOW LEVEL DETECTED";
+                    logMsg = "LOW LEVEL DETECTED";
                 }
                 break;
-    
+
             case STATE_STARTING:
-                if (sys.voltage >= VOLTAGE_MIN && sys.isDay) {
-                
-                    if (!sys.motor) {
-                        motor_on();
-                        sys.motor = true;
-    
-                        sys.motorStartTime = now;
-    
-                        // Initialize dry run tracking
-                        sys.lastDryCheckTime = now;
-                        sys.lastDryCheckLevel = sys.level;
-                        sys.dryRunRetries = 0;
-    
+                if (local.voltage >= VOLTAGE_MIN && local.isDay) {
+
+                    if (!local.motor) {
+                        turnMotorOn = true;
+                        local.motor = true;
+
+                        local.motorStartTime = now;
+                        local.lastDryCheckTime = now;
+                        local.lastDryCheckLevel = local.level;
+                        local.dryRunRetries = 0;
+
                         logNeeded = true;
-                        logMsg ="MOTOR ON";
+                        logMsg = "MOTOR ON";
                     }
-    
-                    sys.state = STATE_RUNNING;
-    
+
+                    local.state = STATE_RUNNING;
+
                 } else {
-                    sys.state = STATE_BLOCKED;
+                    local.state = STATE_BLOCKED;
                     logNeeded = true;
-                    logMsg ="BLOCKED (LOW VOLT/NIGHT)";
+                    logMsg = "BLOCKED (LOW VOLT/NIGHT)";
                 }
                 break;
-    
+
             case STATE_RUNNING:
-    
-                // -------- NORMAL STOP CONDITIONS --------
-                if (sys.voltage <= VOLTAGE_FAIL) {
-                    if (sys.motor) motor_off();
-                    sys.motor = false;
-                    sys.state = STATE_BLOCKED;
+
+                // Normal stop conditions
+                if (local.voltage <= VOLTAGE_FAIL) {
+                    turnMotorOff = true;
+                    local.motor = false;
+                    local.state = STATE_BLOCKED;
                     logNeeded = true;
-                    logMsg ="VOLTAGE DROP - MOTOR OFF";
+                    logMsg = "VOLTAGE DROP - MOTOR OFF";
                     break;
                 }
-    
-                if (sys.level >= sys.stop_th) {
-                    if (sys.motor) motor_off();
-                    sys.motor = false;
-                    sys.state = STATE_FULL;
+
+                if (local.level >= local.stop_th) {
+                    turnMotorOff = true;
+                    local.motor = false;
+                    local.state = STATE_FULL;
                     logNeeded = true;
-                    logMsg ="TANK FULL - MOTOR OFF";
+                    logMsg = "TANK FULL - MOTOR OFF";
                     break;
                 }
-    
-                if (now - sys.motorStartTime < 10000) break;
-                // -------- DRY RUN DETECTION --------
-                if (now - sys.lastDryCheckTime >= DRYRUN_CHECK_INTERVAL_MS) {
-                
-                    int levelDiff = (int)sys.level - (int)sys.lastDryCheckLevel;
-    
+
+                if (now - local.motorStartTime < 10000) break;
+
+                // Dry run detection
+                if (now - local.lastDryCheckTime >= DRYRUN_CHECK_INTERVAL_MS) {
+
+                    int levelDiff = (int)local.level - (int)local.lastDryCheckLevel;
+
                     if (levelDiff < DRYRUN_MIN_INCREASE) {
-                    
-                        sys.dryRunRetries++;
-                        sys.dryRunLockUntil = now + 30000; // 30 sec lock
-                        logNeeded = true;
-                        logMsg ="DRY RUN DETECTED";
-    
-                        if (sys.motor) motor_off();
-                        sys.motor = false;
-    
-                        if (sys.dryRunRetries <= DRYRUN_MAX_RETRIES) {
-                            sys.state = STATE_BLOCKED;
-                            logNeeded = true;
-                            logMsg ="RETRY AFTER DRY RUN";
+
+                        local.dryRunRetries++;
+                        local.dryRunLockUntil = now + 30000;
+
+                        turnMotorOff = true;
+                        local.motor = false;
+
+                        if (local.dryRunRetries <= DRYRUN_MAX_RETRIES) {
+                            local.state = STATE_BLOCKED;
+                            logMsg = "RETRY AFTER DRY RUN";
                         } else {
-                            sys.state = STATE_FAULT;
-                            sys.fault = true;
-                            logNeeded = true;
-                            logMsg ="FAULT: DRY RUN";
+                            local.state = STATE_FAULT;
+                            local.fault = true;
+                            logMsg = "FAULT: DRY RUN";
                         }
-    
-                    } else {
-                        // Water increasing normally
-                        sys.dryRunRetries = 0;
-                    }
-    
-                    // Update reference point
-                    sys.lastDryCheckLevel = sys.level;
-                    sys.lastDryCheckTime = now;
-                }
-    
-                break;
-    
-            case STATE_BLOCKED:
-                if (now < sys.dryRunLockUntil) break;
-                if (now - sys.lastRetryTime > 5000) {
-                    if (sys.voltage >= VOLTAGE_MIN && sys.isDay) {
-                        sys.state = STATE_STARTING;
+
                         logNeeded = true;
-                        logMsg ="RETRY MOTOR";
-                        sys.lastRetryTime = now;
+
+                    } else {
+                        local.dryRunRetries = 0;
+                    }
+
+                    local.lastDryCheckLevel = local.level;
+                    local.lastDryCheckTime = now;
+                }
+
+                break;
+
+            case STATE_BLOCKED:
+                if (now < local.dryRunLockUntil) break;
+
+                if (now - local.lastRetryTime > 5000) {
+                    if (local.voltage >= VOLTAGE_MIN && local.isDay) {
+                        local.state = STATE_STARTING;
+                        local.lastRetryTime = now;
+                        logNeeded = true;
+                        logMsg = "RETRY MOTOR";
                     }
                 }
                 break;
-    
+
             case STATE_FULL:
-                if (sys.motor) motor_off();
-                sys.motor = false;
-                sys.state = STATE_WAIT_LOW;
+                turnMotorOff = true;
+                local.motor = false;
+                local.state = STATE_WAIT_LOW;
                 break;
-    
+
             case STATE_MANUAL:
-                // Optional: still enforce safety
-                if (sys.voltage <= VOLTAGE_FAIL) {
-                    if (sys.motor) motor_off();
-                    sys.motor = false;
-                    sys.state = STATE_FAULT;
+                if (local.voltage <= VOLTAGE_FAIL) {
+                    turnMotorOff = true;
+                    local.motor = false;
+                    local.state = STATE_FAULT;
                     logNeeded = true;
-                    logMsg ="FAULT: MANUAL VOLTAGE DROP";
+                    logMsg = "FAULT: MANUAL VOLTAGE DROP";
                 }
                 break;
-    
+
             case STATE_FAULT:
                 break;
         }
+
+        // -------- STEP 3: WRITE BACK SHARED STATE --------
+        xSemaphoreTake(sysMutex, portMAX_DELAY);
+        sys = local;
         xSemaphoreGive(sysMutex);
-        if(logNeeded) log_event(logMsg);
+
+        // -------- STEP 4: HARDWARE CONTROL (NO MUTEX) --------
+        if (turnMotorOn) motor_on();
+        if (turnMotorOff) motor_off();
+
+        // -------- STEP 5: LOGGING --------
+        if (logNeeded && logMsg) log_event(logMsg);
+
         vTaskDelay(pdMS_TO_TICKS(200));
     }
 }

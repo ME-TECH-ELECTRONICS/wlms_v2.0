@@ -37,6 +37,8 @@ constexpr uint32_t MAX_MOTOR_RUNTIME_MS = (20UL * 60UL * 1000UL);
 constexpr char const* ACCESS_POINT_SSID = "METECH";
 constexpr char const* ACCESS_POINT_PASSWORD = "METECH@3152";
 
+constexpr char const* SECRET = "3e3c9fe7e5d099e1013e8f20c52b46ff0cea526d7bf472fc3195a928284300ce";
+
 // Enums
 enum Mode {
     MODE_AUTO,

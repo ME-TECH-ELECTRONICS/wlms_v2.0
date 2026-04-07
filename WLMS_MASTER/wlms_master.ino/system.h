@@ -12,7 +12,8 @@ struct SystemState {
     uint16_t voltage;
     bool motor;
     bool isDay;
-
+    bool isMainsCut;
+    bool isWifiConnected;
     Mode mode;
     State state;
 
@@ -41,4 +42,5 @@ struct SensorPacket {
 extern SystemState sys;
 extern SemaphoreHandle_t sysMutex;
 extern SemaphoreHandle_t spiMutex;
+extern SemaphoreHandle_t i2cMutex;
 extern QueueHandle_t logQueue;

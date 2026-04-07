@@ -80,6 +80,7 @@ void setup() {
   Serial.println("Open: http://" + WiFi.localIP().toString());
   sysMutex = xSemaphoreCreateMutex();
   spiMutex = xSemaphoreCreateMutex();
+  i2cMutex = xSemaphoreCreateMutex();
   // logQueue = xQueueCreate(10, sizeof(LogMsg));
   xTaskCreatePinnedToCore(control_task, "control", 4096, NULL, 3, NULL, 1);
   xTaskCreatePinnedToCore(loraTask, "LoRa", 4096, NULL, 3, NULL, 1);

@@ -1,8 +1,12 @@
+#include <stdint.h>
 #include "display.h"
 #include <U8g2lib.h>
 #include "config.h"
+#include "system.h"
+#include "rtc.h"
 
 U8G2_SSD1306_128X64_NONAME_1_HW_I2C display(U8G2_R0, U8X8_PIN_NONE);
+MyDS3231& rtc = MyDS3231::getInstance();
 
 void initDisplay() {
   if (!display.begin()) {
@@ -65,4 +69,21 @@ void updateDisplay(uint8_t level, uint16_t voltage, uint16_t volume, const char*
       display.drawGlyph(95, 62, 0x00f8);
     }
   } while (display.nextPage());
+}
+
+void displayTask(void* pv) {
+  while (1) {
+     SystemState local;
+
+    xSemaphoreTake(sysMutex, portMAX_DELAY);
+    local = sys;
+    xSemaphoreGive(sysMutex);
+    RTCDateTime dt = rtc.getDateTime();
+    char buf[20];
+    rtc.formatDateTime(dt, buf);
+    xSemaphoreTake(i2cMutex, portMAX_DELAY);
+    updateDisplay(sys.level, sys.voltage, sys.level * 10, buf, sys.motor, sys.isWifiConnected, sys.isMainsCut);
+    xSemaphoreGive(i2cMutex);
+    vTaskDelay(pdMS_TO_TICKS(500));
+  }
 }
