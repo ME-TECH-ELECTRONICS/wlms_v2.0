@@ -1,0 +1,18 @@
+===== Task Stats =====
+Name: Monitor        | Core: 1 | Prio: 1  | State: 0 | Stack Left: 232 words (928 bytes)
+Name: loopTask       | Core: 1 | Prio: 1  | State: 1 | Stack Left: 5888 words (23552 bytes)
+Name: IDLE0          | Core: 0 | Prio: 0  | State: 1 | Stack Left: 468 words (1872 bytes)
+Name: IDLE1          | Core: 1 | Prio: 0  | State: 1 | Stack Left: 572 words (2288 bytes)
+Name: LoRa           | Core: 1 | Prio: 3  | State: 2 | Stack Left: 316 words (1264 bytes)
+Name: Control        | Core: 1 | Prio: 4  | State: 2 | Stack Left: 368 words (1472 bytes)
+Name: Display        | Core: 1 | Prio: 2  | State: 2 | Stack Left: 416 words (1664 bytes)
+Name: async_tcp      | Core: 2 | Prio: 10 | State: 2 | Stack Left: 15780 words (63120 bytes)
+Name: tiT            | Core: 0 | Prio: 18 | State: 2 | Stack Left: 2888 words (11552 bytes)
+Name: esp_timer      | Core: 0 | Prio: 22 | State: 3 | Stack Left: 7908 words (31632 bytes)
+Name: ipc0           | Core: 0 | Prio: 24 | State: 3 | Stack Left: 484 words (1936 bytes)
+Name: ipc1           | Core: 1 | Prio: 24 | State: 3 | Stack Left: 480 words (1920 bytes)
+Name: sys_evt        | Core: 0 | Prio: 20 | State: 2 | Stack Left: 2896 words (11584 bytes)
+Name: wifi           | Core: 0 | Prio: 23 | State: 2 | Stack Left: 4144 words (16576 bytes)
+Name: arduino_events | Core: 1 | Prio: 19 | State: 2 | Stack Left: 3148 words (12592 bytes)
+Name: Tmr Svc        | Core: 2 | Prio: 1  | State: 2 | Stack Left: 3564 words (14256 bytes)
+==========================5

@@ -49,7 +49,7 @@ void printTaskStats() {
             taskArray[i].usStackHighWaterMark * 4
         );
     }
-    Serial.println("\n==========================");
+    Serial.print("\n==========================");
     free(taskArray);
 }
 
@@ -114,12 +114,10 @@ void setup() {
   spiMutex = xSemaphoreCreateMutex();
   i2cMutex = xSemaphoreCreateMutex();
   // logQueue = xQueueCreate(10, sizeof(LogMsg));
-  xTaskCreatePinnedToCore(control_task, "control", 4096, NULL, 3, NULL, 1);
-  // xTaskCreatePinnedToCore(loraTask, "LoRa", 4096, NULL, 3, NULL, 1);
-  xTaskCreatePinnedToCore(displayTask, "Display", 1700, NULL, 3, &displayHandle, 1);
-  xTaskCreatePinnedToCore(monitorTask, "Monitor", 2048, NULL, 3, NULL, 1);
+  xTaskCreatePinnedToCore(control_task, "Control", 1024, NULL, 4, NULL, 1);
+  xTaskCreatePinnedToCore(loraTask, "LoRa", 1024, NULL, 3, NULL, 1);
+  xTaskCreatePinnedToCore(displayTask, "Display", 2048, NULL, 2, &displayHandle, 1);
+  xTaskCreatePinnedToCore(monitorTask, "Monitor", 2048, NULL, 1, NULL, 1);
 }
 
-void loop() {
-  
-}
+void loop() {}
