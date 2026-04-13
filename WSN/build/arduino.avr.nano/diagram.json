@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "author": "MELVIN RIJOHN T",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-arduino-nano", "id": "nano", "top": 43.2, "left": 28.3, "attrs": {} },
+    { "type": "wokwi-hc-sr04", "id": "ultrasonic1", "top": -113.7, "left": 34.3, "attrs": {} }
+  ],
+  "connections": [
+    [ "ultrasonic1:TRIG", "nano:7", "green", [ "v38.4", "h-29.2" ] ],
+    [ "ultrasonic1:ECHO", "nano:8", "magenta", [ "v28.8", "h-48.8" ] ],
+    [ "ultrasonic1:VCC", "nano:5V", "red", [ "v19.2", "h-96", "v124.8", "h134.4" ] ],
+    [ "ultrasonic1:GND", "nano:GND.2", "black", [ "v48", "h8.4" ] ]
+  ],
+  "dependencies": {}
+}

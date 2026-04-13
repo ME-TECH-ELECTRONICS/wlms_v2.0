@@ -22,7 +22,7 @@ void handleLoRa() {
 
   int packetSize = 0;
 
-  // 🔒 SPI LOCK (parse)
+  // 🔒 SPI LOCK (parse) 
   if (xSemaphoreTake(spiMutex, pdMS_TO_TICKS(10))) {
     packetSize = LoRa.parsePacket();
     xSemaphoreGive(spiMutex);

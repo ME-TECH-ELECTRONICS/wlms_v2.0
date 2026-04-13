@@ -15,4 +15,4 @@ Name: sys_evt        | Core: 0 | Prio: 20 | State: 2 | Stack Left: 2896 words (1
 Name: wifi           | Core: 0 | Prio: 23 | State: 2 | Stack Left: 4144 words (16576 bytes)
 Name: arduino_events | Core: 1 | Prio: 19 | State: 2 | Stack Left: 3148 words (12592 bytes)
 Name: Tmr Svc        | Core: 2 | Prio: 1  | State: 2 | Stack Left: 3564 words (14256 bytes)
-==========================5
+==========================
