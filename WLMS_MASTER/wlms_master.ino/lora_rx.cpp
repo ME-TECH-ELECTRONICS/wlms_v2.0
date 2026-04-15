@@ -6,23 +6,23 @@ uint32_t lastPacketTime = 0;
 
 void initLoara() {
   LoRa.setPins(5, 16, 4);
-  LoRa.setSpreadingFactor(7);
-  LoRa.setSignalBandwidth(250E3);
-  LoRa.setCodingRate4(5);
-  LoRa.setTxPower(17);
   LoRa.setSyncWord(0xF3);
-  LoRa.enableCrc();
 
   if (!LoRa.begin(433E6)) {
-    while (1);
+    Serial.println("LoRa init failed!");
+
+    while (true) {
+      vTaskDelay(pdMS_TO_TICKS(1000));  // ✅ prevent WDT reset
+    }
   }
+  LoRa.enableCrc();
 }
 
 void handleLoRa() {
 
   int packetSize = 0;
 
-  // 🔒 SPI LOCK (parse) 
+  // 🔒 SPI LOCK (parse)
   if (xSemaphoreTake(spiMutex, pdMS_TO_TICKS(10))) {
     packetSize = LoRa.parsePacket();
     xSemaphoreGive(spiMutex);
@@ -35,14 +35,16 @@ void handleLoRa() {
     SensorPacket pkt;
 
     // 🔒 SPI LOCK (read)
-    if (xSemaphoreTake(spiMutex, pdMS_TO_TICKS(10))) {
+    if (xSemaphoreTake(spiMutex, pdMS_TO_TICKS(20))) {
 
-      uint8_t *ptr = (uint8_t*)&pkt;
+      uint8_t *ptr = (uint8_t *)&pkt;
 
       for (int i = 0; i < sizeof(SensorPacket); i++) {
-        if (LoRa.available()) {
-          ptr[i] = LoRa.read();
+        if (!LoRa.available()) {
+          xSemaphoreGive(spiMutex);
+          return;  // incomplete packet → discard
         }
+        ptr[i] = LoRa.read();
       }
 
       xSemaphoreGive(spiMutex);
@@ -52,7 +54,7 @@ void handleLoRa() {
     }
 
     // Validate checksum
-    if ((pkt.level ^ pkt.temp) != pkt.checksum) {
+    if ((pkt.level ^ pkt.temp ^ 0xA5) != pkt.checksum) {
       Serial.println("Checksum error!");
       return;
     }
@@ -64,6 +66,7 @@ void handleLoRa() {
       sys.level = pkt.level;
       sys.lastLevelUpdate = now;
       xSemaphoreGive(sysMutex);
+      // Serial.printf("RX Level: %d\n", pkt.level);
     } else {
       // Optional: skip update if busy (rare)
       return;
@@ -71,7 +74,6 @@ void handleLoRa() {
 
     lastPacketTime = now;
 
-    Serial.printf("Level: %d%% | Temp: %d C\n", pkt.level, pkt.temp);
   }
 
   else if (packetSize > 0) {
@@ -84,6 +86,12 @@ void handleLoRa() {
 }
 
 void loraTask(void *pv) {
+  // 🔒 Protect SPI during init
+  if (xSemaphoreTake(spiMutex, portMAX_DELAY)) {
+    initLoara();
+    xSemaphoreGive(spiMutex);
+  }
+
   while (true) {
     handleLoRa();
     vTaskDelay(pdMS_TO_TICKS(10));

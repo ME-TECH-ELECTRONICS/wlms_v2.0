@@ -21,8 +21,8 @@ constexpr uint8_t SDCARD_CHIP_SELECT = 17;
 constexpr uint8_t MOTOR_START_THRESHOLD = 10;
 constexpr uint8_t MOTOR_STOP_THRESHOLD = 100;
 
-constexpr uint8_t DAY_START_HOUR = 6;
-constexpr uint8_t DAY_END_HOUR = 18;
+constexpr uint8_t DAY_START_HOUR = 1;
+constexpr uint8_t DAY_END_HOUR = 23;
 
 constexpr uint8_t VOLTAGE_MIN = 220;
 constexpr uint8_t VOLTAGE_MAX = 250;
@@ -32,13 +32,13 @@ constexpr uint8_t VOLTAGE_FAIL = 110;
 constexpr uint32_t DRYRUN_CHECK_INTERVAL_MS = 15000;
 constexpr uint8_t DRYRUN_MIN_INCREASE = 2;
 constexpr uint8_t DRYRUN_MAX_RETRIES = 2;
-constexpr uint32_t SENSOR_TIMEOUT_MS = 30000UL;
-constexpr uint32_t MAX_MOTOR_RUNTIME_MS = (20UL * 60UL * 1000UL);
+constexpr uint32_t SENSOR_TIMEOUT_MS = 5000UL;
+constexpr uint32_t MAX_MOTOR_RUNTIME_MS = (10UL * 60UL * 1000UL);
 
-// constexpr char const* ACCESS_POINT_SSID = "METECH";
-// constexpr char const* ACCESS_POINT_PASSWORD = "METECH@3152";
-constexpr char const* ACCESS_POINT_SSID = "Wokwi-GUEST";
-constexpr char const* ACCESS_POINT_PASSWORD = "";
+constexpr char const* ACCESS_POINT_SSID = "METECH";
+constexpr char const* ACCESS_POINT_PASSWORD = "METECH@3152";
+// constexpr char const* ACCESS_POINT_SSID = "Wokwi-GUEST";
+// constexpr char const* ACCESS_POINT_PASSWORD = "";
 
 constexpr char const* SECRET = "3e3c9fe7e5d099e1013e8f20c52b46ff0cea526d7bf472fc3195a928284300ce";
 
@@ -51,6 +51,7 @@ enum Mode {
 
 enum State {
     STATE_IDLE,
+    STATE_WAIT_SENSOR,
     STATE_WAIT_LOW,
     STATE_STARTING,
     STATE_RUNNING,
