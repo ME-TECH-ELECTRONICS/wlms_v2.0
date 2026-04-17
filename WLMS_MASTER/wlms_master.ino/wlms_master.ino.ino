@@ -6,10 +6,8 @@
 // #include "web_dash.h"
 #include "lora_rx.h"
 
-time_t RTCnow;
-struct tm timeinfo;
-
-#include <WiFi.h>
+// time_t RTCnow;
+// struct tm timeinfo;
 
 // void WiFiEvent(WiFiEvent_t event) {
 //   switch (event) {
@@ -28,38 +26,38 @@ struct tm timeinfo;
 //   }
 // }
 
-void printTaskStats() {
-    UBaseType_t taskCount = uxTaskGetNumberOfTasks();
-    TaskStatus_t *taskArray = (TaskStatus_t *)malloc(taskCount * sizeof(TaskStatus_t));
+// void printTaskStats() {
+//     UBaseType_t taskCount = uxTaskGetNumberOfTasks();
+//     TaskStatus_t *taskArray = (TaskStatus_t *)malloc(taskCount * sizeof(TaskStatus_t));
 
-    if (!taskArray) return;
+//     if (!taskArray) return;
 
-    uint32_t totalRuntime;
-    taskCount = uxTaskGetSystemState(taskArray, taskCount, &totalRuntime);
+//     uint32_t totalRuntime;
+//     taskCount = uxTaskGetSystemState(taskArray, taskCount, &totalRuntime);
 
-    Serial.println("\n===== Task Stats =====");
+//     Serial.println("\n===== Task Stats =====");
 
-    for (int i = 0; i < taskCount; i++) {
-        Serial.printf("Name: %s | Core: %d | Prio: %d | State: %d | Stack Left: %d words (%d bytes)\n",
-            taskArray[i].pcTaskName,
-            taskArray[i].xCoreID,
-            taskArray[i].uxCurrentPriority,
-            taskArray[i].eCurrentState,
-            taskArray[i].usStackHighWaterMark,
-            taskArray[i].usStackHighWaterMark * 4
-        );
-    }
-    Serial.print("\n==========================");
-    free(taskArray);
-}
+//     for (int i = 0; i < taskCount; i++) {
+//         Serial.printf("Name: %s | Core: %d | Prio: %d | State: %d | Stack Left: %d words (%d bytes)\n",
+//             taskArray[i].pcTaskName,
+//             taskArray[i].xCoreID,
+//             taskArray[i].uxCurrentPriority,
+//             taskArray[i].eCurrentState,
+//             taskArray[i].usStackHighWaterMark,
+//             taskArray[i].usStackHighWaterMark * 4
+//         );
+//     }
+//     Serial.print("\n==========================");
+//     free(taskArray);
+// }
 
 
-void monitorTask(void* pv) {
-  while (1) {
-    printTaskStats();
-    vTaskDelay(pdMS_TO_TICKS(2000));
-  }
-}
+// void monitorTask(void* pv) {
+//   while (1) {
+//     printTaskStats();
+//     vTaskDelay(pdMS_TO_TICKS(2000));
+//   }
+// }
 
 void setup() {
   Serial.begin(115200);
@@ -115,17 +113,17 @@ void setup() {
 
   // Serial.println("Web Dashboard is ready!");
   // Serial.println("Open: http://" + WiFi.localIP().toString());
-  Serial.println("SYSTEM READY!");
+  Serial.println(F("SYSTEM READY!"));
   sysMutex = xSemaphoreCreateMutex();
   spiMutex = xSemaphoreCreateMutex();
   i2cMutex = xSemaphoreCreateMutex();
   // logQueue = xQueueCreate(10, sizeof(LogMsg));
-  xTaskCreatePinnedToCore(control_task, "Control", 6144, NULL, 4, NULL, 1);
-  xTaskCreatePinnedToCore(loraTask, "LoRa", 4096, NULL, 3, NULL, 1);
+  xTaskCreatePinnedToCore(control_task, "Control", 2048, NULL, 4, NULL, 1);
+  xTaskCreatePinnedToCore(loraTask, "LoRa", 2048, NULL, 3, NULL, 1);
   xTaskCreatePinnedToCore(displayTask, "Display", 4096, NULL, 2, NULL, 1);
   // xTaskCreatePinnedToCore(monitorTask, "Monitor", 2048, NULL, 1, NULL, 1);
 }
-
+// 
 void loop() {
   vTaskDelay(pdMS_TO_TICKS(10));
 }

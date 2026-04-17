@@ -9,7 +9,7 @@ void initLoara() {
   LoRa.setSyncWord(0xF3);
 
   if (!LoRa.begin(433E6)) {
-    Serial.println("LoRa init failed!");
+    Serial.println(F("LoRa init failed!"));
 
     while (true) {
       vTaskDelay(pdMS_TO_TICKS(1000));  // ✅ prevent WDT reset
@@ -55,7 +55,7 @@ void handleLoRa() {
 
     // Validate checksum
     if ((pkt.level ^ pkt.temp ^ 0xA5) != pkt.checksum) {
-      Serial.println("Checksum error!");
+      Serial.println(F("Checksum error!"));
       return;
     }
 

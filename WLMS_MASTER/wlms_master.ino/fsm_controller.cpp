@@ -232,6 +232,6 @@ void control_task(void* pv) {
       Serial.printf("L:%d V:%d Vol:%d Motor:%d WiFi:%d Mains:%d Msg: %s\n", local.level, local.voltage, local.level * 10, local.motor, local.isWifiConnected, local.isMainsCut, logMsg);
       prevLvl = local.level;
     }
-    vTaskDelay(pdMS_TO_TICKS(1));
+    vTaskDelay(pdMS_TO_TICKS(5));
   }
 }

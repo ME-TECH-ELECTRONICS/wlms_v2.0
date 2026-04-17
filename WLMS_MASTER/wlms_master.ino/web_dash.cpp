@@ -8,26 +8,36 @@ extern "C" {
 #include "fsm_controller.h"
 
 const uint8_t NONCE_HISTORY = 10;
+uint32_t nonceTable[NONCE_HISTORY];
+
 const uint8_t NONCE_LEN = 17;  // 16 chars + null
 unsigned long lastRequestTime = 0;
-char usedNonces[NONCE_HISTORY][NONCE_LEN];
+
 int nonceIndex = 0;
 
-
 static AsyncWebServer server(80);
-IPAddress trustedServer(10, 174, 113, 67);
+
+uint32_t simpleHash(const char *str) {
+  uint32_t hash = 5381;
+  while (*str) {
+    hash = ((hash << 5) + hash) ^ *str++;  // djb2 variant
+  }
+  return hash;
+}
 
 bool isReplay(const char *nonce) {
-  for (int i = 0; i < NONCE_HISTORY; i++) {
-    if (strcmp(usedNonces[i], nonce) == 0) {
-      return true;
-    }
+
+  uint32_t h = simpleHash(nonce);
+  int index = h % NONCE_HISTORY;
+
+  // Check if already used
+  if (nonceTable[index] == h) {
+    return true;
   }
 
-  strncpy(usedNonces[nonceIndex], nonce, NONCE_LEN);
-  usedNonces[nonceIndex][NONCE_LEN - 1] = '\0';
+  // Store new nonce
+  nonceTable[index] = h;
 
-  nonceIndex = (nonceIndex + 1) % NONCE_HISTORY;
   return false;
 }
 
@@ -62,8 +72,10 @@ void hmac_sha256(const char *data, const char *key, char *output_hex) {
   mbedtls_md_free(&ctx);
 
   // Convert to hex
+  const char hex[] = "0123456789abcdef";
   for (int i = 0; i < 32; i++) {
-    sprintf(output_hex + (i * 2), "%02x", hmac[i]);
+    output_hex[i * 2] = hex[(hmac[i] >> 4) & 0xF];
+    output_hex[i * 2 + 1] = hex[hmac[i] & 0xF];
   }
   output_hex[64] = '\0';
 }
@@ -75,20 +87,16 @@ void handleStatusRequest(AsyncWebServerRequest *request) {
 }
 
 void handleSystemCtrl(AsyncWebServerRequest *request, uint8_t *data, size_t len, size_t, size_t) {
-  if (request->client()->remoteIP() != trustedServer) {
-    request->send(403, "text/plain", "Forbidden");
-    return;
-  }
 
   // ⚡ Rate limiting
   if (!rateLimit()) {
-    request->send(429, "text/plain", "Too Many Requests");
+    request->send(429, "text/plain", F("Too Many Requests"));
     return;
   }
 
   // ---- Size check ----
   if (len < 50 || len > 200) {
-    request->send(400, "text/plain", "Invalid payload size");
+    request->send(400, "text/plain", F("Invalid payload size"));
     return;
   }
 
@@ -108,58 +116,61 @@ void handleSystemCtrl(AsyncWebServerRequest *request, uint8_t *data, size_t len,
   // action
   p = strstr(buf, "\"action\":\"");
   if (!p || sscanf(p + 10, "%15[^\"]", action) != 1) {
-    request->send(400, "text/plain", "Invalid action");
+    request->send(400, "text/plain", F("Invalid action"));
     return;
   }
 
   // timestamp
   p = strstr(buf, "\"timestamp\":");
   if (!p || sscanf(p + 12, "%ld", &timestamp) != 1) {
-    request->send(400, "text/plain", "Invalid timestamp");
+    request->send(400, "text/plain", F("Invalid timestamp"));
     return;
   }
 
   // nonce
   p = strstr(buf, "\"nonce\":\"");
   if (!p || sscanf(p + 9, "%16[^\"]", nonce) != 1) {
-    request->send(400, "text/plain", "Invalid nonce");
+    request->send(400, "text/plain", F("Invalid nonce"));
     return;
   }
 
   // sig
   p = strstr(buf, "\"sig\":\"");
   if (!p || sscanf(p + 7, "%64[^\"]", sig) != 1) {
-    request->send(400, "text/plain", "Invalid signature");
+    request->send(400, "text/plain", F("Invalid signature"));
     return;
   }
 
   // ---- Strict validation ----
-  if (strlen(nonce) != 16 || strlen(sig) != 64) {
-    request->send(400, "text/plain", "Invalid field length");
+  if (nonce[16] != '\0' || sig[64] != '\0') {
+    request->send(400, "text/plain", F("Invalid field length"));
     return;
   }
 
   // ---- Replay protection ----
   if (isReplay(nonce)) {
-    request->send(403, "text/plain", "Replay detected");
+    request->send(403, "text/plain", F("Replay detected"));
     return;
   }
 
   // ---- Timestamp check ----
   long now = time(NULL);
+  if (now < 100000) {
+    request->send(503, "text/plain", F("Time not synced"));
+    return;
+  }
+
   if (abs(now - timestamp) > 30) {
-    request->send(403, "text/plain", "Expired request");
+    request->send(403, "text/plain", F("Expired request"));
     return;
   }
 
   // ---- Rebuild payload ----
   char payload[128];
-  int written = snprintf(payload, sizeof(payload),
-                         "{\"action\":\"%s\",\"timestamp\":%ld,\"nonce\":\"%s\"}",
-                         action, timestamp, nonce);
+  int written = snprintf(payload, sizeof(payload), "{\"action\":\"%s\",\"timestamp\":%ld,\"nonce\":\"%s\"}", action, timestamp, nonce);
 
   if (written <= 0 || written >= sizeof(payload)) {
-    request->send(500, "text/plain", "Payload error");
+    request->send(500, "text/plain", F("Payload error"));
     return;
   }
 
@@ -169,7 +180,7 @@ void handleSystemCtrl(AsyncWebServerRequest *request, uint8_t *data, size_t len,
 
   // ---- Constant-time compare ----
   if (!constantTimeCompare(expected, sig, 64)) {
-    request->send(403, "text/plain", "Invalid signature");
+    request->send(403, "text/plain", F("Invalid signature"));
     return;
   }
 
@@ -179,20 +190,17 @@ void handleSystemCtrl(AsyncWebServerRequest *request, uint8_t *data, size_t len,
   } else if (strcmp(action, "motor_off") == 0) {
     digitalWrite(MOTOR, LOW);
   } else {
-    request->send(400, "text/plain", "Invalid action");
+    request->send(400, "text/plain", F("Invalid action"));
     return;
   }
 
-  request->send(200, "text/plain", "OK");
+  request->send(200, "text/plain", F("OK"));
 }
 
 void web_dash_init() {
-
+  memset(nonceTable, 0, sizeof(nonceTable));
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
-    IPAddress ip = request->client()->remoteIP();
-    Serial.print("Request from: ");
-    Serial.println(ip);
-    request->send(200, "text/html", "<h1>Web Dashboard</h1><br><p>Work in progress......</p>");
+    request->send(200, "text/html", F("<h1>Web Dashboard</h1><br><p>Work in progress......</p>"));
   });
   // server.on("/update", HTTP_POST, handleUpdate, handleUpload);
   server.on("/status", HTTP_GET, handleStatusRequest);

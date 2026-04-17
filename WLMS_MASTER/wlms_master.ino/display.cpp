@@ -103,9 +103,7 @@ void updateDisplay(uint8_t level, uint16_t voltage, uint16_t volume, const char*
 
 void displayTask(void* pv) {
   while (1) {
-
     SystemState local;
-
     // ---- SAFE STATE COPY ----
     if (xSemaphoreTake(sysMutex, pdMS_TO_TICKS(50))) {
       local = sys;
@@ -117,15 +115,12 @@ void displayTask(void* pv) {
 
     // ---- RTC READ (already mutex protected internally) ----
     RTCDateTime dt = rtc.getDateTime();
-
     char buf[20];
     rtc.formatDateTime(dt, buf);
 
     // ---- DISPLAY UPDATE ----
     if (xSemaphoreTake(i2cMutex, pdMS_TO_TICKS(100))) {
-
       updateDisplay(local.level, local.voltage, local.level * 10, buf, local.motor, local.isWifiConnected, local.isMainsCut);
-
       xSemaphoreGive(i2cMutex);
     }
 
