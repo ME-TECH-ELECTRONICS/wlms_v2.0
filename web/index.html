@@ -1,102 +1,355 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+
 <head>
-    <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WLMS v2.0</title>
-    <link rel="stylesheet" href="style.css" type="text/css" media="all" />
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src='https://cdn.plot.ly/plotly-2.32.0.min.js'></script>
+    <title>Auth UI</title>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+    <style>
+        :root {
+            --bg1: #0f172a;
+            --bg2: #020617;
+            --bg3: #70707258;
+            --card: rgba(255, 255, 255, 0.05);
+            --border: rgba(255, 255, 255, 0.12);
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+            --primary: #8b5cf6;
+            --secondary: #22d3ee;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        body {
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background:
+                radial-gradient(circle at 20% 20%, rgba(139, 92, 246, 0.25), transparent 40%),
+                radial-gradient(circle at 80% 80%, rgba(34, 211, 238, 0.2), transparent 40%),
+                linear-gradient(135deg, var(--bg1), var(--bg2));
+            color: var(--text);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 420px;
+            padding: 30px;
+            border-radius: 20px;
+            background: var(--card);
+            backdrop-filter: blur(25px);
+            border: 1px solid var(--border);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        }
+
+        .title {
+            text-align: center;
+            background: linear-gradient(90deg, #a78bfa, #22d3ee);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 30px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 25px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 12px;
+            background: transparent;
+            color: var(--muted);
+            cursor: pointer;
+            font-weight: 600;
+            transition: .3s;
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: #fff;
+            box-shadow: 0 10px 25px rgba(139, 92, 246, 0.4);
+        }
+
+        .panel {
+            display: none;
+        }
+
+        .panel.active {
+            display: block;
+        }
+
+        .field {
+            position: relative;
+            margin-bottom: 18px;
+        }
+
+        .field input {
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text);
+            outline: none;
+        }
+
+        .field label {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--muted);
+            font-size: 14px;
+            pointer-events: none;
+            transition: .25s;
+            background: transparent;
+        }
+
+        .field input:focus {
+            border-color: var(--secondary);
+            box-shadow: 0 0 0 3px rgba(198, 245, 252, 0.15);
+        }
+
+        .field input:focus+label,
+        .field input:not(:placeholder-shown)+label {
+            top: -8px;
+            font-size: 11px;
+            background: var(--bg3);
+            padding: 0 6px;
+            color: #67e8f9;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 13px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: #fff;
+            font-weight: bold;
+            cursor: pointer;
+            transition: .3s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px rgba(139, 92, 246, 0.4);
+        }
+
+        .link {
+            display: block;
+            text-align: right;
+            margin: 10px 0;
+            font-size: 13px;
+            color: #67e8f9;
+            cursor: pointer;
+        }
+
+        .msg {
+            display: none;
+            padding: 10px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+            font-size: 13px;
+        }
+
+        .success {
+            background: #14532d;
+        }
+
+        .error {
+            background: #7f1d1d;
+        }
+
+        .pass-toggle {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        .cf-turnstile {
+            margin: 20px 0 20px 0;
+        }
+    </style>
 </head>
+
 <body>
-    <header>
-        <h1>WLMS v2.0</h1>
-    </header>
-    <div class="content">
-        <div class="container1">
-            <div class="readings" id="readings">
-                <div class="items">
-                    <span>Motor Status</span>
-                    <h2 id="status">OFF</h2>
-                </div>
-                <div class="items">
-                    <span>Control Mode</span>
-                    <div class="toggle-btn">
-                        <span class="text1">MANUAL</span>
-                        <label class="switch">
-                            <input type="checkbox" checked id="mode">
-                            <span class="slider"></span>
-                        </label>
-                        <span class="text1">AUTO</span>
-                    </div>
 
-                </div>
-                <div class="items" id="motorCtrl">
-                    <span>Motor Control</span>
-                    <div class="toggle-btn">
-                        <span class="text">OFF</span>
-                        <label class="switch">
-                            <input type="checkbox" id="ctrlBtn">
-                            <span class="slider"></span>
-                        </label>
-                        <span class="text">ON</span>
-                    </div>
-                </div>
-            </div>
+    <div class="container">
+        <h2 class="title">Account Access</h2>
+
+        <div class="tabs">
+            <button class="tab active" data="login">Login</button>
+            <button class="tab" data="register">Register</button>
+            <!-- <button class="tab" data="forgot">Forgot</button> -->
         </div>
-        <div class="container2">
-            <div class="menu">
-                <span>Graph</span>
-                <span>Table</span>
-            </div>
-            <div id="contents" style="border: 1px solid black">
-                <div class="graph" id="plot"></div>
 
+        <!-- LOGIN -->
+        <form class="panel active" id="login">
+            <div class="msg" id="loginMsg"></div>
 
-                <div class="table">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Sl No</th>
-                                <th>Date</th>
-                                <th>Motor ON Time</th>
-                                <th>Motor OFF Time</th>
-                                <th>Duration</th>
-                                <th>Remarks</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr style="background-color: #11FF11;">
-                                <td>1</td>
-                                <td>28/05/24</td>
-                                <td>08:26:45 AM</td>
-                                <td>08:30:45 AM</td>
-                                <td>4 Min</td>
-                                <td>Normal</td>
-                            </tr>
-                            <tr style="background-color: red; color: white">
-                                <td>2</td>
-                                <td>27/05/24</td>
-                                <td>02:26:45 PM</td>
-                                <td>02:28:45 AM</td>
-                                <td>2 Min</td>
-                                <td>Mains Cut</td>
-                            </tr>
-                            <tr style="background-color: #11FF11;">
-                                <td>3</td>
-                                <td>26/05/24</td>
-                                <td>05:25:45 AM</td>
-                                <td>05:30:45 AM</td>
-                                <td>5 Min</td>
-                                <td>Normal</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+            <div class="field">
+                <input type="email" name="login-email" placeholder=" " required>
+                <label>Email</label>
             </div>
-        </div>
+
+            <div class="field">
+                <input type="password" name="login-password" id="loginPass" placeholder=" " required>
+                <label>Password</label>
+                <span class="pass-toggle" data="loginPass">Show</span>
+            </div>
+
+            <span class="link switch" data="forgot">Forgot Password?</span>
+            <!-- <div class="cf-turnstile" data-sitekey="0x4AAAAAAC_SlmlB65j2jMo5" data-size="flexible"></div> -->
+            <button class="btn" id="loginBtn">Login</button>
+        </form>
+
+        <!-- REGISTER -->
+        <form class="panel" id="register">
+            <div class="msg" id="regMsg"></div>
+
+            <div class="field">
+                <input type="text" name="fullname" placeholder=" " required>
+                <label>Full Name</label>
+            </div>
+
+            <div class="field">
+                <input type="email" name="reg-email" placeholder=" " required>
+                <label>Email</label>
+            </div>
+
+            <div class="field">
+                <input type="password" name="reg-password" id="regPass1" placeholder=" " required>
+                <label>Password</label>
+                <span class="pass-toggle" data="regPass1">Show</span>
+            </div>
+
+            <div class="field">
+                <input type="password" name="reg-password-confirm" id="regPass2" placeholder=" " required>
+                <label>Confirm Password</label>
+                <span class="pass-toggle" data="regPass2">Show</span>
+            </div>
+            <!-- <div class="cf-turnstile" data-sitekey="0x4AAAAAAC_SlmlB65j2jMo5" data-size="flexible"></div> -->
+            <button class="btn" id="regBtn">Register</button>
+        </form>
+
+        <!-- FORGOT -->
+        <form class="panel" id="forgot">
+            <div class="msg" id="forgotMsg"></div>
+
+            <div class="field">
+                <input type="email" name="forget-email" placeholder=" ">
+                <label>Email</label>
+            </div>
+            <!-- <div class="cf-turnstile" data-sitekey="0x4AAAAAAC_SlmlB65j2jMo5" data-size="flexible"></div> -->
+            <button class="btn" id="forgotBtn">Send Reset Link</button>
+        </form>
+
     </div>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <script>
+        $(document).ready(function () {
+            $('input[type=email]').on('input', function (e) {
+                let value = $(this).val();
+                value = value.replace(/[^a-zA-Z0-9@._+-]/g, '');
+                if (value.length > 64) {
+                    value = value.substring(0, 64);
+                }
+                let parts = value.split('@');
+                if (parts.length > 2) {
+                    value = parts[0] + '@' + parts.slice(1).join('').replace(/@/g, '');
+                }
+                $(this).val(value);
+            });
 
-    <script src="script.js" type="text/javascript" charset="utf-8"></script>
+            $('input[type=password]').on('input', function () {
+                let value = $(this).val();
+                value = value.replace(/\s/g, '');
+                if (value.length > 20) {
+                    value = value.substring(0, 20);
+                }
+                $(this).val(value);
+            });
+
+            $('input[name="fullname"]').on('input', function () {
+                let value = $(this).val();
+                value = value.replace(/[^a-zA-Z ]/g, '');
+                value = value.replace(/\s+/g, ' ');
+                value = value.replace(/^\s/, '');
+                $(this).val(value);
+            });
+
+            function showPanel(id) {
+                $(".panel").removeClass("active");
+                $("#" + id).addClass("active");
+
+                $(".tab").removeClass("active");
+                $('.tab[data="' + id + '"]').addClass("active");
+
+                $(".msg").hide();
+            }
+
+            $(".tab, .switch").click(function () {
+                showPanel($(this).attr("data"));
+            });
+
+            $(".pass-toggle").click(function () {
+                let id = $(this).attr("data");
+                let input = $("#" + id);
+
+                if (input.attr("type") === "password") {
+                    input.attr("type", "text");
+                    $(this).text("Hide");
+                } else {
+                    input.attr("type", "password");
+                    $(this).text("Show");
+                }
+            });
+
+            $("#loginBtn").click(function () {
+                $("#loginMsg").removeClass("error").addClass("success")
+                    .text("Login submitted").show();
+            });
+
+            $("#regBtn").click(function () {
+                let p1 = $("#regPass1").val();
+                let p2 = $("#regPass2").val();
+
+                if (p1 !== p2) {
+                    $("#regMsg").removeClass("success").addClass("error")
+                        .text("Passwords do not match").show();
+                    return;
+                }
+
+                $("#regMsg").removeClass("error").addClass("success")
+                    .text("Registered successfully").show();
+            });
+
+            $("#forgotBtn").click(function () {
+                $("#forgotMsg").removeClass("error").addClass("success")
+                    .text("Reset link sent").show();
+            });
+
+        });
+    </script>
+
 </body>
+
 </html>

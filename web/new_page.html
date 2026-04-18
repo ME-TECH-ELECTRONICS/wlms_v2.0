@@ -613,12 +613,10 @@
             <div class="brand" style="margin-bottom: 20px;">
                 <div class="brand-badge">WL</div>
                 <div>
-                    <h1>Water Level Controller</h1>
+                    <h1>WLMS Admin Login</h1>
                     <p>Secure admin access</p>
                 </div>
             </div>
-            <h2>Admin Login</h2>
-            <p>Access live readings, control settings, and logs from the controller dashboard.</p>
             <div class="field">
                 <label for="username">Username</label>
                 <input id="username" class="input" type="text" placeholder="admin" autocomplete="username" />
@@ -632,10 +630,7 @@
                 <button class="btn" id="loginBtn">Login</button>
                 <button class="btn secondary" id="demoBtn">Use Demo Data</button>
             </div>
-            <div class="login-note">
-                This template is only the front end. Real security such as password hashing, session tokens, rate
-                limiting, CSRF protection, IP filtering, and device API authentication must be enforced on the server.
-            </div>
+            
             <div class="footer-note">Demo credentials: <strong>admin</strong> / <strong>admin123</strong></div>
         </div>
     </div>
@@ -645,32 +640,28 @@
             <div class="brand">
                 <div class="brand-badge">WL</div>
                 <div>
-                    <h1>Water Level Controller</h1>
-                    <p>Admin dashboard</p>
+                    <h1>Water Level Monitoring System v1.0</h1>
+                    <p>User dashboard</p>
                 </div>
             </div>
 
             <nav class="nav">
-                <button class="active" data-page="dashboard">Dashboard <span>Live</span></button>
-                <button data-page="logs">Action Logs <span>Sort</span></button>
-                <button data-page="settings">Settings <span>Secure</span></button>
+                <button class="active" data-page="dashboard">Dashboard</button>
+                <button data-page="logs">Action Logs</button>
+                <button data-page="settings">Settings</button>
             </nav>
 
 
-            <div class="sidebar-card">
-                <h3>Connection</h3>
-                <p><strong>MQTT:</strong> Connected<br><strong>API:</strong> HTTPS ready<br><strong>Last sync:</strong>
-                    2 sec ago</p>
-            </div>
         </aside>
 
         <main class="main">
             <div class="topbar">
                 <div class="title">
                     <h2>Control Center</h2>
-                    <p>View live metrics, manage thresholds, and monitor motor behavior.</p>
+                    
                 </div>
                 <div class="top-actions">
+                    <div class="pill"></span> Last Sync 2 sec ago</div>
                     <div class="pill"><span class="status-dot"></span> System online</div>
                     <div class="pill" id="clockPill">--:--:--</div>
                 </div>
@@ -718,11 +709,7 @@
                 <div class="section">
                     <div class="card panel">
                         <div class="panel-header">
-                            <div>
-                                <h3>Visual Meters</h3>
-                                <small>Water level and voltage circular indicators</small>
-                            </div>
-                            <span class="badge neutral">Auto refresh</span>
+                            <h3>Device Status</h3>
                         </div>
                         <div class="chart-wrap">
                             <div class="gauge">
@@ -741,8 +728,8 @@
                                     <text x="100" y="108" text-anchor="middle" id="waterText">72%</text>
                                 </svg>
                                 <div class="gauge-label">
-                                    <strong>Water Tank</strong>
-                                    <span>Current fill level</span>
+                                    <strong>Water Level</strong>
+                                    <span>Thresholds: start at <span id="waterStart">20%</span>, stop at <span id="waterStop">100%</span></span>
                                 </div>
                             </div>
                             <div class="gauge">
@@ -762,7 +749,7 @@
                                 </svg>
                                 <div class="gauge-label">
                                     <strong>Supply Voltage</strong>
-                                    <span>Motor input voltage</span>
+                                    <span>Safety thresholds: <span id="voltageLow">200V</span> to <span id="voltageHigh">250V</span></span>
                                 </div>
                             </div>
                         </div>
@@ -901,11 +888,6 @@
                     <button class="btn secondary" id="logoutBtn">Logout</button>
                 </div>
 
-                <div class="footer-note">
-                    Security recommendations: store passwords hashed on the server, use HTTPS only, issue short-lived
-                    session tokens, add rate limits, lock accounts after repeated failures, require CSRF tokens for
-                    state changes, and log every control action.
-                </div>
             </section>
         </main>
     </div>
@@ -1015,7 +997,7 @@
             document.getElementById('motorState').textContent = 'ON';
             document.getElementById('motorBadge').textContent = 'Running';
             setGauge('waterArc', 'waterText', waterValue, '%');
-            setGauge('voltageArc', 'voltageText', (voltageValue - 180) / 80 * 100, 'V');
+            setGauge('voltageArc', 'voltageText', voltageValue, 'V');
             renderLogs();
             updateClock();
         }
@@ -1081,7 +1063,7 @@
         setInterval(updateClock, 1000);
         updateClock();
         setGauge('waterArc', 'waterText', waterValue, '%');
-        setGauge('voltageArc', 'voltageText', (voltageValue - 180) / 80 * 100, 'V');
+        setGauge('voltageArc', 'voltageText', 2, 'V');
     </script>
 </body>
 
