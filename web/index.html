@@ -5,8 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Auth UI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 
     <style>
         :root {
@@ -18,7 +18,9 @@
             --text: #e2e8f0;
             --muted: #94a3b8;
             --primary: #8b5cf6;
+            --primary-fade: #5a3d9e;
             --secondary: #22d3ee;
+            --secondary-fade: #1e9bbd;
         }
 
         * {
@@ -143,7 +145,9 @@
             cursor: pointer;
             transition: .3s;
         }
-
+        .fade{
+            background: linear-gradient(135deg, var(--primary-fade), var(--secondary-fade)) !important;
+        }
         .btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 15px 30px rgba(139, 92, 246, 0.4);
@@ -161,17 +165,17 @@
         .msg {
             display: none;
             padding: 10px;
-            margin-bottom: 10px;
+            margin-bottom: 25px;
             border-radius: 10px;
             font-size: 13px;
         }
 
         .success {
-            background: #14532d;
+            background: #2fa35d;
         }
 
         .error {
-            background: #7f1d1d;
+            background: #c22323;
         }
 
         .pass-toggle {
@@ -196,17 +200,16 @@
         <h2 class="title">Account Access</h2>
 
         <div class="tabs">
-            <button class="tab active" data="login">Login</button>
-            <button class="tab" data="register">Register</button>
-            <!-- <button class="tab" data="forgot">Forgot</button> -->
+            <button class="tab active" data="loginForm">Login</button>
+            <button class="tab" data="registerForm">Register</button>
         </div>
 
         <!-- LOGIN -->
-        <form class="panel active" id="login">
+        <form class="panel active" id="loginForm">
             <div class="msg" id="loginMsg"></div>
 
             <div class="field">
-                <input type="email" name="login-email" placeholder=" " required>
+                <input type="email" name="login-email" id="loginEmail" placeholder=" " required>
                 <label>Email</label>
             </div>
 
@@ -216,9 +219,9 @@
                 <span class="pass-toggle" data="loginPass">Show</span>
             </div>
 
-            <span class="link switch" data="forgot">Forgot Password?</span>
+            <span class="link switch" data="forgotForm">Forgot Password?</span>
             <!-- <div class="cf-turnstile" data-sitekey="0x4AAAAAAC_SlmlB65j2jMo5" data-size="flexible"></div> -->
-            <button class="btn" id="loginBtn">Login</button>
+            <button class="btn" id="loginBtn" type="submit">Login</button>
         </form>
 
         <!-- REGISTER -->
@@ -226,12 +229,12 @@
             <div class="msg" id="regMsg"></div>
 
             <div class="field">
-                <input type="text" name="fullname" placeholder=" " required>
+                <input type="text" name="fullname" id="regName" placeholder=" " required>
                 <label>Full Name</label>
             </div>
 
             <div class="field">
-                <input type="email" name="reg-email" placeholder=" " required>
+                <input type="email" name="reg-email" id="regEmail" placeholder=" " required>
                 <label>Email</label>
             </div>
 
@@ -247,23 +250,24 @@
                 <span class="pass-toggle" data="regPass2">Show</span>
             </div>
             <!-- <div class="cf-turnstile" data-sitekey="0x4AAAAAAC_SlmlB65j2jMo5" data-size="flexible"></div> -->
-            <button class="btn" id="regBtn">Register</button>
+            <button class="btn" id="regBtn" type="submit">Register</button>
         </form>
 
         <!-- FORGOT -->
-        <form class="panel" id="forgot">
+        <form class="panel" id="forgotForm">
             <div class="msg" id="forgotMsg"></div>
 
             <div class="field">
-                <input type="email" name="forget-email" placeholder=" ">
+                <input type="email" name="forget-email" id="forgotEmail" placeholder=" " required>
                 <label>Email</label>
             </div>
             <!-- <div class="cf-turnstile" data-sitekey="0x4AAAAAAC_SlmlB65j2jMo5" data-size="flexible"></div> -->
-            <button class="btn" id="forgotBtn">Send Reset Link</button>
+            <button class="btn" id="forgotBtn" type="submit">Send Reset Link</button>
         </form>
 
     </div>
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <script src="./jquery-3.7.1.min.js"></script>
     <script>
         $(document).ready(function () {
             $('input[type=email]').on('input', function (e) {
@@ -294,6 +298,118 @@
                 value = value.replace(/\s+/g, ' ');
                 value = value.replace(/^\s/, '');
                 $(this).val(value);
+            });
+            function showMsg(id, msg, type) {
+                $(id).removeClass("error success").addClass(type).text(msg).show();
+                setTimeout(() => $(id).fadeOut(), 3000);
+            }
+
+            $('#loginForm').on('submit', function (e) {
+                e.preventDefault();
+
+                let email = $('#loginEmail').val().trim();
+                let password = $('#loginPass').val();
+                let captcha = $('#loginForm input[name="cf-turnstile-response"]').val();
+
+                if (!email || !password) {
+                    return showMsg('#loginMsg', 'All fields required', 'error');
+                }
+
+                // if (!captcha) {
+                //     return showMsg('#loginMsg', 'Complete captcha', 'error');
+                // }
+                
+                $.ajax({
+                    url: "/api/login.php",
+                    method: "POST",
+                    contentType: "application/json",
+                    dataType: "json",
+                    data: JSON.stringify({ email, password, captcha }),
+
+                    beforeSend: () => $("#loginBtn").prop("disabled", true).addClass('fade').html('<i class="fa-solid fa-circle-notch fa-spin fa-xl"></i>'),
+
+                    success: function (res) {
+                        showMsg('#loginMsg', res.message, res.success ? 'success' : 'error');
+                        localStorage.setItem('token', res.token);
+                        if (res.success) {
+                            setTimeout(() => location.href = "/dashboard", 1000);
+                        }
+
+                        turnstile.reset();
+                    },
+
+                    error: () => showMsg('#loginMsg', 'Server error', 'error')
+                });
+            });
+
+            $('#register').on('submit', function (e) {
+                e.preventDefault();
+
+                let name = $('input[name="fullname"]').val().trim();
+                let email = $('input[name="reg-email"]').val().trim();
+                let pass1 = $('#regPass1').val();
+                let pass2 = $('#regPass2').val();
+                let captcha = $('#register input[name="cf-turnstile-response"]').val();
+
+                if (!name || !email || !pass1 || !pass2) {
+                    return showMsg('#regMsg', 'All fields required', 'error');
+                }
+
+                if (pass1 !== pass2) {
+                    return showMsg('#regMsg', 'Passwords do not match', 'error');
+                }
+
+                if (!captcha) {
+                    return showMsg('#regMsg', 'Complete captcha', 'error');
+                }
+
+                $.ajax({
+                    url: "/api/register.php",
+                    method: "POST",
+                    contentType: "application/json",
+                    dataType: "json",
+                    data: JSON.stringify({ name, email, password: pass1, captcha }),
+
+                    beforeSend: () => $("#regBtn").prop("disabled", true).addClass('fade').html('<i class="fa-solid fa-circle-notch fa-spin fa-xl"></i>'),
+
+                    success: function (res) {
+                        showMsg('#regMsg', res.message, res.success ? 'success' : 'error');
+                        turnstile.reset();
+                    },
+
+                    error: () => showMsg('#regMsg', 'Server error', 'error')
+                });
+            });
+
+            $('#forgotForm').on('submit', function (e) {
+                e.preventDefault();
+
+                let email = $('#forgotForm input[name="forget-email"]').val().trim();
+                let captcha = $('#forgotForm input[name="cf-turnstile-response"]').val();
+                if (!email) {
+                    return showMsg('#forgotMsg', 'Enter email', 'error');
+                }
+
+                if (!captcha) {
+                    return showMsg('#forgotMsg', 'Complete captcha', 'error');
+                }
+
+                $.ajax({
+                    url: "/api/forgot.php",
+                    method: "POST",
+                    contentType: "application/json",
+                    dataType: "json",
+                    data: JSON.stringify({ email, captcha }),
+
+                    beforeSend: () => $("#forgotBtn").prop("disabled", true).addClass('fade').html('<i class="fa-solid fa-circle-notch fa-spin fa-xl"></i>'),
+
+                    success: function (res) {
+                        showMsg('#forgotMsg', res.message, res.success ? 'success' : 'error');
+                        turnstile.reset();
+                    },
+
+                    error: () => showMsg('#forgotMsg', 'Server error', 'error')
+                });
             });
 
             function showPanel(id) {
@@ -342,10 +458,10 @@
                     .text("Registered successfully").show();
             });
 
-            $("#forgotBtn").click(function () {
-                $("#forgotMsg").removeClass("error").addClass("success")
-                    .text("Reset link sent").show();
-            });
+            // $("#forgotBtn").click(function () {
+            //     $("#forgotMsg").removeClass("error").addClass("success")
+            //         .text("Reset link sent").show();
+            // });
 
         });
     </script>

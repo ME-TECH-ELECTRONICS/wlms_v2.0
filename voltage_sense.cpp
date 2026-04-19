@@ -1,7 +1,6 @@
 #include <Arduino.h>
 #include "esp_adc/adc_continuous.h"
 #include <math.h>
-#include "system.h"
 
 // -------- CONFIG --------
 #define ADC_CHANNEL ADC_CHANNEL_5  // GPIO33
@@ -9,7 +8,7 @@
 #define BUFFER_SIZE 256
 #define RING_SIZE 4096
 #define MAINS_FREQ 50
-#define CALIBRATION_FACTOR 0.6f
+#define CALIBRATION_FACTOR 0.581f
 
 adc_continuous_handle_t adc_handle;
 
@@ -68,6 +67,7 @@ void initADC() {
       ;
   }
 
+
   adc_continuous_config_t adc_config = {
     .sample_freq_hz = SAMPLE_RATE,
     .conv_mode = ADC_CONV_SINGLE_UNIT_1,
@@ -100,15 +100,14 @@ void initADC() {
 
 void readADC(void *pv) {
 
-  static uint8_t buffer[BUFFER_SIZE];
+  uint8_t buffer[BUFFER_SIZE];
   uint32_t length = 0;
 
   while (1) {
 
     if (adc_continuous_read(adc_handle, buffer, BUFFER_SIZE, &length, 1000) == ESP_OK) {
 
-      if (length < sizeof(adc_digi_output_data_t))
-        continue;
+      if (length < sizeof(adc_digi_output_data_t)) continue;
 
       int samples = length / sizeof(adc_digi_output_data_t);
 
@@ -121,7 +120,6 @@ void readADC(void *pv) {
         ringPush(raw);
       }
     }
-    vTaskDelay(1);
   }
 }
 
@@ -139,7 +137,7 @@ void readVoltageTask(void *pv) {
     if (ringPop(raw)) {
 
       // Offset tracking
-      zeroPoint = 0.995f * zeroPoint + 0.005f * raw;
+      zeroPoint = 0.999f * zeroPoint + 0.001f * raw;
 
       int val = raw - (int)zeroPoint;
 
@@ -151,23 +149,18 @@ void readVoltageTask(void *pv) {
         float rms = sqrt((float)sqSum / count);
         float v = rms * CALIBRATION_FACTOR;
 
-        if (filtered == 0)
-          filtered = v;
+        if (filtered == 0) filtered = v;
         filtered = 0.8f * filtered + 0.2f * v;
 
         int voltage = (int)(filtered + 0.5f);
-        if(voltage < 100) voltage = 0; 
-        if (xSemaphoreTake(sysMutex, pdMS_TO_TICKS(5))) {
-          sys.voltage = voltage;
-          sys.isMainsCut = (voltage == 0) ? true : false;
-          xSemaphoreGive(sysMutex);
-        } else {
-          continue;
-        }
+
+        Serial.print("Voltage: ");
+        Serial.println(voltage);
 
         sqSum = 0;
         count = 0;
       }
+
     } else {
       vTaskDelay(1);  // no data → yield CPU
     }
