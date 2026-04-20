@@ -5,7 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Auth UI</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"
+        integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
 
 
     <style>
@@ -145,9 +147,11 @@
             cursor: pointer;
             transition: .3s;
         }
-        .fade{
+
+        .fade {
             background: linear-gradient(135deg, var(--primary-fade), var(--secondary-fade)) !important;
         }
+
         .btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 15px 30px rgba(139, 92, 246, 0.4);
@@ -170,14 +174,6 @@
             font-size: 13px;
         }
 
-        .success {
-            background: #2fa35d;
-        }
-
-        .error {
-            background: #c22323;
-        }
-
         .pass-toggle {
             position: absolute;
             right: 12px;
@@ -191,11 +187,55 @@
         .cf-turnstile {
             margin: 20px 0 20px 0;
         }
+
+        #toastBox {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 9999;
+        }
+
+        .toast {
+            min-width: 250px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 13px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.3s ease;
+        }
+
+        .toast.success {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+        }
+
+        .toast.error {
+            background: linear-gradient(135deg, #ef4444, #b91c1c);
+        }
+
+        .toast.info {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
     </style>
 </head>
 
 <body>
-
+    <div id="toastBox"></div>
     <div class="container">
         <h2 class="title">Account Access</h2>
 
@@ -206,7 +246,6 @@
 
         <!-- LOGIN -->
         <form class="panel active" id="loginForm">
-            <div class="msg" id="loginMsg"></div>
 
             <div class="field">
                 <input type="email" name="login-email" id="loginEmail" placeholder=" " required>
@@ -220,13 +259,12 @@
             </div>
 
             <span class="link switch" data="forgotForm">Forgot Password?</span>
-            <!-- <div class="cf-turnstile" data-sitekey="0x4AAAAAAC_SlmlB65j2jMo5" data-size="flexible"></div> -->
+            <div class="cf-turnstile" data-sitekey="0x4AAAAAAC_SlmlB65j2jMo5" data-size="flexible"></div>
             <button class="btn" id="loginBtn" type="submit">Login</button>
         </form>
 
         <!-- REGISTER -->
-        <form class="panel" id="register">
-            <div class="msg" id="regMsg"></div>
+        <form class="panel" id="registerForm">
 
             <div class="field">
                 <input type="text" name="fullname" id="regName" placeholder=" " required>
@@ -249,19 +287,18 @@
                 <label>Confirm Password</label>
                 <span class="pass-toggle" data="regPass2">Show</span>
             </div>
-            <!-- <div class="cf-turnstile" data-sitekey="0x4AAAAAAC_SlmlB65j2jMo5" data-size="flexible"></div> -->
+            <div class="cf-turnstile" data-sitekey="0x4AAAAAAC_SlmlB65j2jMo5" data-size="flexible"></div>
             <button class="btn" id="regBtn" type="submit">Register</button>
         </form>
 
         <!-- FORGOT -->
         <form class="panel" id="forgotForm">
-            <div class="msg" id="forgotMsg"></div>
 
             <div class="field">
                 <input type="email" name="forget-email" id="forgotEmail" placeholder=" " required>
                 <label>Email</label>
             </div>
-            <!-- <div class="cf-turnstile" data-sitekey="0x4AAAAAAC_SlmlB65j2jMo5" data-size="flexible"></div> -->
+            <div class="cf-turnstile" data-sitekey="0x4AAAAAAC_SlmlB65j2jMo5" data-size="flexible"></div>
             <button class="btn" id="forgotBtn" type="submit">Send Reset Link</button>
         </form>
 
@@ -299,10 +336,7 @@
                 value = value.replace(/^\s/, '');
                 $(this).val(value);
             });
-            function showMsg(id, msg, type) {
-                $(id).removeClass("error success").addClass(type).text(msg).show();
-                setTimeout(() => $(id).fadeOut(), 3000);
-            }
+
 
             $('#loginForm').on('submit', function (e) {
                 e.preventDefault();
@@ -312,13 +346,13 @@
                 let captcha = $('#loginForm input[name="cf-turnstile-response"]').val();
 
                 if (!email || !password) {
-                    return showMsg('#loginMsg', 'All fields required', 'error');
+                    return showMsg('All fields required', 'error');
                 }
 
                 // if (!captcha) {
-                //     return showMsg('#loginMsg', 'Complete captcha', 'error');
+                //     return showMsg('Complete captcha', 'error');
                 // }
-                
+
                 $.ajax({
                     url: "/api/login.php",
                     method: "POST",
@@ -329,38 +363,44 @@
                     beforeSend: () => $("#loginBtn").prop("disabled", true).addClass('fade').html('<i class="fa-solid fa-circle-notch fa-spin fa-xl"></i>'),
 
                     success: function (res) {
-                        showMsg('#loginMsg', res.message, res.success ? 'success' : 'error');
-                        localStorage.setItem('token', res.token);
                         if (res.success) {
-                            setTimeout(() => location.href = "/dashboard", 1000);
+                            showMsg('Login successful. Redirecting...', 'success');
+                            localStorage.setItem('deviceId', res.deviceId);
+                            setTimeout(() => location.href = "/dashboard", 2000);
+                        } else {
+                            $("#loginBtn").prop("disabled", false).removeClass('fade').text('Login');
+                            turnstile.reset();
+                            showMsg(res.message, 'error');
                         }
-
-                        turnstile.reset();
+                        $('#loginForm')[0].reset();
                     },
 
-                    error: () => showMsg('#loginMsg', 'Server error', 'error')
+                    error: () => {
+                        $("#loginBtn").prop("disabled", false).removeClass('fade').text('Login');
+                        showMsg('Server error', 'error');
+                    }
                 });
             });
 
-            $('#register').on('submit', function (e) {
+            $('#registerForm').on('submit', function (e) {
                 e.preventDefault();
 
-                let name = $('input[name="fullname"]').val().trim();
-                let email = $('input[name="reg-email"]').val().trim();
+                let name = $('regName').val().trim();
+                let email = $('regEmail').val().trim();
                 let pass1 = $('#regPass1').val();
                 let pass2 = $('#regPass2').val();
-                let captcha = $('#register input[name="cf-turnstile-response"]').val();
+                let captcha = $('#registerForm input[name="cf-turnstile-response"]').val();
 
                 if (!name || !email || !pass1 || !pass2) {
-                    return showMsg('#regMsg', 'All fields required', 'error');
+                    return showMsg('All fields required', 'error');
                 }
 
                 if (pass1 !== pass2) {
-                    return showMsg('#regMsg', 'Passwords do not match', 'error');
+                    return showMsg('Passwords do not match', 'error');
                 }
 
                 if (!captcha) {
-                    return showMsg('#regMsg', 'Complete captcha', 'error');
+                    return showMsg('Complete captcha', 'error');
                 }
 
                 $.ajax({
@@ -373,25 +413,34 @@
                     beforeSend: () => $("#regBtn").prop("disabled", true).addClass('fade').html('<i class="fa-solid fa-circle-notch fa-spin fa-xl"></i>'),
 
                     success: function (res) {
-                        showMsg('#regMsg', res.message, res.success ? 'success' : 'error');
+                        if (res.success) {
+                            showMsg('Registered successfully. Proceed to login', 'success');
+                        } else {
+                            $("#regBtn").prop("disabled", false).removeClass('fade').text('Register');
+                            showMsg(res.message, 'error');
+                        }
+                        $('#registerForm')[0].reset();
                         turnstile.reset();
                     },
 
-                    error: () => showMsg('#regMsg', 'Server error', 'error')
+                    error: () => {
+                        $("#regBtn").prop("disabled", false).removeClass('fade').text('Register');
+                        showMsg('Server error', 'error');
+                    }
                 });
             });
 
             $('#forgotForm').on('submit', function (e) {
                 e.preventDefault();
 
-                let email = $('#forgotForm input[name="forget-email"]').val().trim();
+                let email = $('#forgotEmail').val().trim();
                 let captcha = $('#forgotForm input[name="cf-turnstile-response"]').val();
                 if (!email) {
-                    return showMsg('#forgotMsg', 'Enter email', 'error');
+                    return showMsg('Enter email', 'error');
                 }
 
                 if (!captcha) {
-                    return showMsg('#forgotMsg', 'Complete captcha', 'error');
+                    return showMsg('Complete captcha', 'error');
                 }
 
                 $.ajax({
@@ -404,11 +453,20 @@
                     beforeSend: () => $("#forgotBtn").prop("disabled", true).addClass('fade').html('<i class="fa-solid fa-circle-notch fa-spin fa-xl"></i>'),
 
                     success: function (res) {
-                        showMsg('#forgotMsg', res.message, res.success ? 'success' : 'error');
+                        if (res.success) {
+                            showMsg('Reset link sent successfully', 'success');
+                        } else {
+                            $("#forgotBtn").prop("disabled", false).removeClass('fade').text('Send Reset Link');
+                            showMsg(res.message, 'error');
+                        }
+                        $('#forgotForm')[0].reset();
                         turnstile.reset();
                     },
 
-                    error: () => showMsg('#forgotMsg', 'Server error', 'error')
+                    error: () => {
+                        $("#forgotBtn").prop("disabled", false).removeClass('fade').text('Send Reset Link');
+                        showMsg('Server error', 'error');
+                    }
                 });
             });
 
@@ -439,31 +497,17 @@
                 }
             });
 
-            $("#loginBtn").click(function () {
-                $("#loginMsg").removeClass("error").addClass("success")
-                    .text("Login submitted").show();
-            });
-
-            $("#regBtn").click(function () {
-                let p1 = $("#regPass1").val();
-                let p2 = $("#regPass2").val();
-
-                if (p1 !== p2) {
-                    $("#regMsg").removeClass("success").addClass("error")
-                        .text("Passwords do not match").show();
-                    return;
-                }
-
-                $("#regMsg").removeClass("error").addClass("success")
-                    .text("Registered successfully").show();
-            });
-
-            // $("#forgotBtn").click(function () {
-            //     $("#forgotMsg").removeClass("error").addClass("success")
-            //         .text("Reset link sent").show();
-            // });
-
         });
+
+        function showMsg(message, type = 'success') {
+            let toast = $(`<div class="toast ${type}">${message}</div>`);
+            $("#toastBox").append(toast);
+            setTimeout(() => {
+                toast.fadeOut(300, function () {
+                    $(this).remove();
+                });
+            }, 3000);
+        }
     </script>
 
 </body>
