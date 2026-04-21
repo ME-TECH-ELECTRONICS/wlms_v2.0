@@ -5,10 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Auth UI</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"
-        integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw=="
-        crossorigin="anonymous" referrerpolicy="no-referrer" />
-
+    <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin="anonymous" referrerpolicy="no-referrer" /> -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
     <style>
         :root {
@@ -349,9 +347,9 @@
                     return showMsg('All fields required', 'error');
                 }
 
-                // if (!captcha) {
-                //     return showMsg('Complete captcha', 'error');
-                // }
+                if (!captcha) {
+                    return showMsg('Complete captcha', 'error');
+                }
 
                 $.ajax({
                     url: "/api/login.php",
@@ -360,24 +358,35 @@
                     dataType: "json",
                     data: JSON.stringify({ email, password, captcha }),
 
-                    beforeSend: () => $("#loginBtn").prop("disabled", true).addClass('fade').html('<i class="fa-solid fa-circle-notch fa-spin fa-xl"></i>'),
+                    beforeSend: () => {
+                        $("#loginBtn")
+                            .prop("disabled", true)
+                            .addClass('fade')
+                            .html('<i class="fa-solid fa-circle-notch fa-spin"></i> Logging in...');
+                    },
 
                     success: function (res) {
                         if (res.success) {
                             showMsg('Login successful. Redirecting...', 'success');
+
                             localStorage.setItem('deviceId', res.deviceId);
+
+                            $('#loginForm')[0].reset();
+
                             setTimeout(() => location.href = "/dashboard", 2000);
                         } else {
-                            $("#loginBtn").prop("disabled", false).removeClass('fade').text('Login');
+                            resetBtn('#loginBtn', 'Login');
                             turnstile.reset();
                             showMsg(res.message, 'error');
                         }
-                        $('#loginForm')[0].reset();
                     },
 
-                    error: () => {
-                        $("#loginBtn").prop("disabled", false).removeClass('fade').text('Login');
-                        showMsg('Server error', 'error');
+                    error: (xhr) => {
+                        resetBtn('#loginBtn', 'Login');
+                        turnstile.reset();
+
+                        let msg = xhr.responseJSON?.message || 'Server error';
+                        showMsg(msg, 'error');
                     }
                 });
             });
@@ -385,8 +394,8 @@
             $('#registerForm').on('submit', function (e) {
                 e.preventDefault();
 
-                let name = $('regName').val().trim();
-                let email = $('regEmail').val().trim();
+                let name = $('#regName').val().trim();
+                let email = $('#regEmail').val().trim();
                 let pass1 = $('#regPass1').val();
                 let pass2 = $('#regPass2').val();
                 let captcha = $('#registerForm input[name="cf-turnstile-response"]').val();
@@ -394,15 +403,15 @@
                 if (!name || !email || !pass1 || !pass2) {
                     return showMsg('All fields required', 'error');
                 }
-
                 if (pass1 !== pass2) {
                     return showMsg('Passwords do not match', 'error');
                 }
-
+                if (pass1.length < 6) {
+                    return showMsg('Password must be at least 6 characters', 'error');
+                }
                 if (!captcha) {
                     return showMsg('Complete captcha', 'error');
                 }
-
                 $.ajax({
                     url: "/api/register.php",
                     method: "POST",
@@ -410,22 +419,34 @@
                     dataType: "json",
                     data: JSON.stringify({ name, email, password: pass1, captcha }),
 
-                    beforeSend: () => $("#regBtn").prop("disabled", true).addClass('fade').html('<i class="fa-solid fa-circle-notch fa-spin fa-xl"></i>'),
+                    beforeSend: () => {
+                        $("#regBtn")
+                            .prop("disabled", true)
+                            .addClass('fade')
+                            .html('<i class="fa-solid fa-circle-notch fa-spin"></i> Registering...');
+                    },
 
                     success: function (res) {
                         if (res.success) {
                             showMsg('Registered successfully. Proceed to login', 'success');
+
+                            $('#registerForm')[0].reset();
+                            setTimeout(() => {
+                                $('.tab[data="loginForm"]').click();
+                            }, 1500);
                         } else {
-                            $("#regBtn").prop("disabled", false).removeClass('fade').text('Register');
+                            resetBtn('#regBtn', 'Register');
+                            turnstile.reset();
                             showMsg(res.message, 'error');
                         }
-                        $('#registerForm')[0].reset();
-                        turnstile.reset();
                     },
 
-                    error: () => {
-                        $("#regBtn").prop("disabled", false).removeClass('fade').text('Register');
-                        showMsg('Server error', 'error');
+                    error: (xhr) => {
+                        resetRegBtn('#regBtn', 'Register');
+                        turnstile.reset();
+
+                        let msg = xhr.responseJSON?.message || 'Server error';
+                        showMsg(msg, 'error');
                     }
                 });
             });
@@ -507,6 +528,13 @@
                     $(this).remove();
                 });
             }, 3000);
+        }
+
+        function resetBtn(id, text) {
+            $("#" + id)
+                .prop("disabled", false)
+                .removeClass('fade')
+                .text(text);
         }
     </script>
 

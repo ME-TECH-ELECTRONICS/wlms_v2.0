@@ -1,7 +1,14 @@
 <?php
 include_once 'config.php';
+include_once 'utility.php';
+require __DIR__ . '/../vendor/autoload.php';
+
+use Firebase\JWT\JWT;
 
 header('Content-Type: application/json');
+
+// 🔐 strong secret (store in env/config in real apps)
+
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
@@ -14,9 +21,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $email = filter_var(trim($input['email'] ?? ''), FILTER_SANITIZE_EMAIL);
     $password = trim($input['password'] ?? '');
+    $captcha = trim($input['captcha'] ?? '');
 
-    if (!$email || !$password) {
+    if (!$email || !$password || !$captcha) {
         echo json_encode(['success' => false, 'message' => 'Missing fields']);
+        exit;
+    }
+
+     if (!validateCaptcha($captcha)) {
+        echo json_encode(['success' => false, 'message' => 'Captcha failed']);
         exit;
     }
 
@@ -24,8 +37,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         echo json_encode(['success' => false, 'message' => 'Invalid email']);
         exit;
     }
+   
 
-    $stmt = $conn->prepare("SELECT id, email, password FROM users WHERE email = ?");
+    $stmt = $conn->prepare("SELECT id, name, email, password FROM users WHERE email = ?");
     $stmt->bind_param("s", $email);
     $stmt->execute();
 
@@ -35,22 +49,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $user = $result->fetch_assoc();
 
-        // 5. Verify password
         if (password_verify($password, $user['password'])) {
+
+            // ✅ Create JWT payload
+            $payload = [
+                "iss" => $issuer,
+                "iat" => time(),
+                "nbf" => time(),
+                "exp" => time() + 86400, // 1 day
+                "data" => [
+                    "id" => $user['id'],
+                    "name" => $user['name'],
+                    "email" => $user['email']
+                ]
+            ];
+
+            // 🔑 Generate token
+            $jwt = JWT::encode($payload, $secret_key, 'HS256');
+
+            // 🍪 Store in secure cookie
+            setcookie("auth_token", $jwt, [
+                'expires' => time() + 86400,
+                'path' => '/',
+                'secure' => true,     // HTTPS only
+                'httponly' => true,   // JS cannot access
+                'samesite' => 'Strict'
+            ]);
 
             echo json_encode([
                 'success' => true,
-                'message' => 'Login successful',
-                'user_id' => $user['id']
+                'message' => 'Login successful'
             ]);
+
         } else {
             echo json_encode(['success' => false, 'message' => 'Invalid credentials']);
         }
+
     } else {
         echo json_encode(['success' => false, 'message' => 'Invalid credentials']);
     }
 
     $stmt->close();
+
 } else {
     echo json_encode(['success' => false, 'message' => 'Invalid request method']);
 }
