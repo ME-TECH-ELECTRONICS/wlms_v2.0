@@ -1,13 +1,13 @@
 <?php
-include_once 'config.php';
-include_once 'utility.php';
 require __DIR__ . '/../vendor/autoload.php';
+
+include_once 'config.php';
+include_once 'db.php';
+include_once 'utility.php';
 
 use Firebase\JWT\JWT;
 
 header('Content-Type: application/json');
-
-// 🔐 strong secret (store in env/config in real apps)
 
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -28,7 +28,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
-     if (!validateCaptcha($captcha)) {
+     if (!validateCaptcha($captcha, $CAPTCHA_SECRET)) {
         echo json_encode(['success' => false, 'message' => 'Captcha failed']);
         exit;
     }
@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // ✅ Create JWT payload
             $payload = [
-                "iss" => $issuer,
+                "iss" => $JWT_ISSUER,
                 "iat" => time(),
                 "nbf" => time(),
                 "exp" => time() + 86400, // 1 day
@@ -65,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ];
 
             // 🔑 Generate token
-            $jwt = JWT::encode($payload, $secret_key, 'HS256');
+            $jwt = JWT::encode($payload, $JWT_SECRET, 'HS256');
 
             // 🍪 Store in secure cookie
             setcookie("auth_token", $jwt, [

@@ -1,15 +1,8 @@
 <?php
-require __DIR__ . '/vendor/autoload.php';
-
-use Dotenv\Dotenv;
-
-$dotenv = Dotenv::createImmutable(__DIR__ . '/../');
-$dotenv->load();
-
+include_once "config.php";
 //validate cloudeflare turnstile captcha
-function validateCaptcha($token)
+function validateCaptcha($token, $secretKey)
 {
-    $secretKey = "0x4AAAAAAC_Slvp99Zosbu2bIdpCOeuBQ1c";
     $url = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 
     $data = [
@@ -35,7 +28,7 @@ function validateCaptcha($token)
     return $result['success'] ?? false;
 }
 
-function sendMail($email, $name, $subject, $message)
+function sendMail($api_key, $email, $name, $subject, $message)
 {
     $url = "https://api.brevo.com/v3/smtp/email";
 
@@ -56,16 +49,47 @@ function sendMail($email, $name, $subject, $message)
 
     $ch = curl_init($url);
 
-    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-        "api-key: YOUR_BREVO_API_KEY",
-        "Content-Type: application/json",
-        'Accept: application/json'
+    curl_setopt_array($ch, [
+        CURLOPT_HTTPHEADER => [
+            "api-key: " . $api_key,
+            "Content-Type: application/json",
+            "Accept: application/json"
+        ],
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_POST => true,
+        CURLOPT_POSTFIELDS => json_encode($data)
     ]);
 
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-
     $response = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $error = curl_error($ch);
+
     curl_close($ch);
+
+    // Handle cURL error
+    if ($error) {
+        return [
+            "success" => false,
+            "message" => "cURL Error: " . $error
+        ];
+    }
+
+    // Decode API response
+    $responseData = json_decode($response, true);
+
+    // Success check (Brevo returns 201 on success)
+    if ($httpCode === 201) {
+        return [
+            "success" => true,
+            "message" => "Email sent successfully",
+            "data" => $responseData
+        ];
+    }
+
+    return [
+        "success" => false,
+        "message" => $responseData['message'] ?? "Failed to send email",
+        "status_code" => $httpCode,
+        "data" => $responseData
+    ];
 }
