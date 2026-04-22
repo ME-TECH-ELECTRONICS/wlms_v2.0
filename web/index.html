@@ -372,17 +372,16 @@
                             localStorage.setItem('deviceId', res.deviceId);
 
                             $('#loginForm')[0].reset();
-
                             setTimeout(() => location.href = "/dashboard", 2000);
                         } else {
-                            resetBtn('#loginBtn', 'Login');
-                            turnstile.reset();
                             showMsg(res.message, 'error');
                         }
+                        resetBtn('loginBtn', 'Login');
+                        turnstile.reset();
                     },
 
                     error: (xhr) => {
-                        resetBtn('#loginBtn', 'Login');
+                        resetBtn('loginBtn', 'Login');
                         turnstile.reset();
 
                         let msg = xhr.responseJSON?.message || 'Server error';
@@ -435,14 +434,14 @@
                                 $('.tab[data="loginForm"]').click();
                             }, 1500);
                         } else {
-                            resetBtn('#regBtn', 'Register');
-                            turnstile.reset();
                             showMsg(res.message, 'error');
                         }
+                        resetBtn('regBtn', 'Register');
+                        turnstile.reset();
                     },
 
                     error: (xhr) => {
-                        resetRegBtn('#regBtn', 'Register');
+                        resetBtn('regBtn', 'Register');
                         turnstile.reset();
 
                         let msg = xhr.responseJSON?.message || 'Server error';

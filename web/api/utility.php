@@ -93,3 +93,7 @@ function sendMail($api_key, $email, $name, $subject, $message)
         "data" => $responseData
     ];
 }
+
+function generateRandomToken($length = 32) {
+    return bin2hex(random_bytes($length));
+}

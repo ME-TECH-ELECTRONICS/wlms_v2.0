@@ -1,7 +1,8 @@
 <?php
 include_once 'config.php';
+include_once 'db.php';
 include_once 'utility.php';
-
+include_once __DIR__ . '/../templates/email.php';
 
 
 header('Content-Type: application/json');
@@ -31,7 +32,7 @@ if (!$name || !$email || !$password || !$captcha) {
     exit;
 }
 
-if (!validateCaptcha($captcha)) {
+if (!validateCaptcha($captcha, $CAPTCHA_SECRET)) {
     echo json_encode(['success' => false, 'message' => 'Captcha failed']);
     exit;
 }
@@ -63,11 +64,21 @@ if ($result->num_rows > 0) {
 }
 $stmt->close();
 
+$token = generateRandomToken(); // Generate a random token for email verification
+$hashedToken = hash('sha256', $token);
+$expires = date("Y-m-d H:i:s", time() + 3600); // Token expires in 1 hour
+
 // Insert user
-$stmt = $conn->prepare("INSERT INTO users (name, email, password) VALUES (?, ?, ?)");
-$stmt->bind_param("sss", $name, $email, $hashedPassword);
+$stmt = $conn->prepare("INSERT INTO users (name, email, password, verification_token, verification_expires) VALUES (?, ?, ?, ?, ?)");
+$stmt->bind_param("sssss", $name, $email, $hashedPassword, $hashedToken, $expires);
 
 if ($stmt->execute()) {
+    $message = str_replace(
+        ['{{name}}', '{{domain}}', '{{token}}'],
+        [htmlspecialchars($name, ENT_QUOTES, 'UTF-8'), $DOMAIN_NAME, $token],
+        $VERIFICATION_EMAIL_TEMPLATE
+    );
+    sendMail($EMAIL_API_KEY, $email, $name, "Registration Successful", $message);
     echo json_encode([
         'success' => true,
         'message' => 'Registration successful'
