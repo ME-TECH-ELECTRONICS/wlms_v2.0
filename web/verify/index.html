@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Verified</title>
+    <link rel="stylesheet" href="/web/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+
+</head>
+    <style>
+        .test {
+            color: #ef4444;
+        }
+    </style>
+<body>
+
+    <div class="container verify-box">
+        <div class="icon" id="verifyIcon">
+            <i class="fa-solid fa-circle-notch fa-spin"></i>
+        </div>
+        <div class="title" id="verifyTitle">Verifying Account...</div>
+        <div class="desc" id="verifyDesc">
+            Please wait while we verify your email.
+        </div>
+        <a href="/login" class="btn" id="verifyBtn" style="display:none; text-decoration:none;">
+            Go to Login
+        </a>
+    </div>
+
+    <script src="/web/jquery-3.7.1.min.js"></script>
+    <script>
+        $(document).ready(function () {
+
+            function getToken() {
+                const params = new URLSearchParams(window.location.search);
+                return params.get("token");
+            }
+
+            function setLoading() {
+                $("#verifyIcon").html('<i class="fa-solid fa-circle-notch fa-spin"></i>').css("color", "#3b82f6");
+                $("#verifyTitle").text("Verifying Account...");
+                $("#verifyDesc").text("Please wait while we verify your email.");
+                $("#verifyBtn").hide();
+            }
+
+            function setSuccess(msg) {
+                $("#verifyIcon").html('<i class="fa-solid fa-circle-check"></i>').css("color", "#22c55e");
+                $("#verifyTitle").text("Account Verified");
+                $("#verifyDesc").text(msg);
+                $("#verifyBtn").show();
+            }
+
+            function setError(msg) {
+                $("#verifyIcon").html('<i class="fa-solid fa-circle-xmark"></i>').css("color", "#ef4444");
+                $("#verifyTitle").text("Verification Failed").css("color", "#ef4444");
+                $("#verifyDesc").text(msg);
+                $("#verifyBtn").show().text("Back to Login");
+            }
+
+            let token = getToken();
+
+            if (!token) {
+                setError("Invalid or missing verification link.");
+                return;
+            }
+
+            setLoading();
+
+            $.ajax({
+                url: "/api/verify.php?token=" + encodeURIComponent(token),
+                method: "GET",
+                dataType: "json",
+
+                success: function (res) {
+                    if (res.success) {
+                        setSuccess("Your email has been successfully verified. You can now log in.");
+                    } else {
+                        setError(res.message);
+                    }
+                },
+
+                error: function () {
+                    setError("Server error. Please try again later.");
+                }
+            });
+
+        });
+    </script>
+</body>
+
+</html>
