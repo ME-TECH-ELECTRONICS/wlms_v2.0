@@ -97,3 +97,9 @@ function sendMail($api_key, $email, $name, $subject, $message)
 function generateRandomToken($length = 32) {
     return bin2hex(random_bytes($length));
 }
+
+function simpleResponse($data) {
+    header('Content-Type: application/json');
+    echo json_encode($data);
+    exit;
+}

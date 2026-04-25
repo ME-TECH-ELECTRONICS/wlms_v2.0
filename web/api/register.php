@@ -32,10 +32,10 @@ if (!$name || !$email || !$password || !$captcha) {
     exit;
 }
 
-if (!validateCaptcha($captcha, $CAPTCHA_SECRET)) {
-    echo json_encode(['success' => false, 'message' => 'Captcha failed']);
-    exit;
-}
+// if (!validateCaptcha($captcha, $CAPTCHA_SECRET)) {
+//     echo json_encode(['success' => false, 'message' => 'Captcha failed']);
+//     exit;
+// }
 
 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
     echo json_encode(['success' => false, 'message' => 'Invalid email']);

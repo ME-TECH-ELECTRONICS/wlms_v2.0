@@ -15,8 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $input = json_decode(file_get_contents("php://input"), true);
 
     if (!$input) {
-        echo json_encode(['success' => false, 'message' => 'Invalid JSON']);
-        exit;
+        simpleResponse(['success' => false, 'message' => 'Invalid JSON']);
     }
 
     $email = strtolower(trim($input['email'] ?? ''));
@@ -24,26 +23,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $captcha = trim($input['captcha'] ?? '');
 
     if (!$email || !$password || !$captcha) {
-        echo json_encode(['success' => false, 'message' => 'Missing fields']);
-        exit;
+        simpleResponse(['success' => false, 'message' => 'Missing fields']);
     }
 
-     if (!validateCaptcha($captcha, $CAPTCHA_SECRET)) {
-        echo json_encode(['success' => false, 'message' => 'Captcha failed']);
-        exit;
-    }
+    // if (!validateCaptcha($captcha, $CAPTCHA_SECRET)) {
+    //     simpleResponse(['success' => false, 'message' => 'Captcha failed']);
+    // }
 
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        echo json_encode(['success' => false, 'message' => 'Invalid email']);
-        exit;
+        simpleResponse(['success' => false, 'message' => 'Invalid email']);
     }
-   
 
-    $stmt = $conn->prepare("SELECT id, name, email, password, is_verified, verification_token, verification_expires, failed_attempts, lock_until, last_verification_sent FROM users WHERE email = ?");
-    $stmt->bind_param("s", $email);
-    $stmt->execute();
 
-    $result = $stmt->get_result();
+    $fetchUser = $conn->prepare("SELECT id, name, email, password, is_verified, verification_token, verification_expires, failed_attempts, lock_until, last_verification_sent FROM users WHERE email = ?");
+    $fetchUser->bind_param("s", $email);
+    if (!$fetchUser->execute()) {
+        simpleResponse(['success' => false, 'message' => 'Database error']);
+    }
+
+    $result = $fetchUser->get_result();
 
     if ($result->num_rows > 0) {
 
@@ -51,16 +49,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($user['lock_until'] && strtotime($user['lock_until']) > time()) {
             $remaining = strtotime($user['lock_until']) - time();
 
-            echo json_encode([
+            simpleResponse([
                 'success' => false,
                 'message' => 'Account locked. Try again in ' . ceil($remaining / 60) . ' minutes.'
             ]);
-            exit;
         }
         if (password_verify($password, $user['password'])) {
-            $stmt2 = $conn->prepare("UPDATE users SET failed_attempts = 0, lock_until = NULL WHERE id = ?");
-            $stmt2->bind_param("i", $user['id']);
-            $stmt2->execute();
+            $updateUser = $conn->prepare("UPDATE users SET failed_attempts = 0, lock_until = NULL WHERE id = ?");
+            $updateUser->bind_param("i", $user['id']);
+
+            if (!$updateUser->execute()) {
+                simpleResponse(['success' => false, 'message' => 'Database error']);
+            }
             if (!$user['is_verified']) {
                 // Check expiry
                 $expired = !$user['verification_expires'] || strtotime($user['verification_expires']) < time();
@@ -73,21 +73,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $lastSent = $user['last_verification_sent'] ?? null;
 
                     if ($lastSent && (time() - strtotime($lastSent)) < 60) {
-                        echo json_encode([
+                        simpleResponse([
                             'success' => false,
                             'message' => 'Please wait before requesting another verification email.'
                         ]);
-                        exit;
                     }
                     // Update DB
-                    $stmt2 = $conn->prepare("
+                    $updateVerification = $conn->prepare("
                         UPDATE users 
                         SET verification_token = ?, verification_expires = ?, last_verification_sent = NOW()
                         WHERE id = ? AND (last_verification_sent IS NULL OR last_verification_sent < NOW() - INTERVAL 60 SECOND)
                     ");
-                    $stmt2->bind_param("ssi", $hashedToken, $expires, $user['id']);
-                    $stmt2->execute();
+                    $updateVerification->bind_param("ssi", $hashedToken, $expires, $user['id']);
 
+                    if (!$updateVerification->execute()) {
+                        simpleResponse(['success' => false, 'message' => 'Database error']);
+                    }
                     // 📧 Send email
                     $message = str_replace(
                         ['{{name}}', '{{domain}}', '{{token}}'],
@@ -101,50 +102,111 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                     sendMail($EMAIL_API_KEY, $user['email'], $user['name'], "Verify Your Account", $message);
 
-                    echo json_encode([
+                    simpleResponse([
                         'success' => false,
                         'message' => 'Please verify your email. A new verification link has been sent if the previous one expired.'
                     ]);
                 } else {
-                    echo json_encode([
+                    simpleResponse([
                         'success' => false,
                         'message' => 'Please verify your email before logging in.'
                     ]);
                 }
-                exit;
             }
-
-            // ✅ Create JWT payload
-            $payload = [
+            $jti = bin2hex(random_bytes(16));
+            // ✅ Access Token (short life)
+            $accessPayload = [
                 "iss" => $JWT_ISSUER,
                 "iat" => time(),
                 "nbf" => time(),
-                "exp" => time() + 86400, // 1 day
+                "exp" => time() + $ACCESS_TOKEN_EXP, // 1 hour
                 "data" => [
                     "id" => $user['id'],
-                    "name" => $user['name'],
                     "email" => $user['email']
-                ]
+                ],
+                "jti" => $jti
             ];
 
-            // 🔑 Generate token
-            $jwt = JWT::encode($payload, $JWT_SECRET, 'HS256');
+            $accessToken = JWT::encode($accessPayload, $JWT_SECRET, 'HS256');
 
-            // 🍪 Store in secure cookie
-            setcookie("auth_token", $jwt, [
-                'expires' => time() + 86400,
+            // 🔄 Refresh Token (long life)
+            $refreshToken = bin2hex(random_bytes(32));
+            $refreshTokenHash = hash('sha256', $refreshToken);
+            $refreshExpires = date("Y-m-d H:i:s", time() + $REFRESH_TOKEN_EXP); // 7 days
+
+            // ✅ Store HASH in DB (NOT raw token)
+            $insertToken = $conn->prepare("INSERT INTO user_tokens (user_id, refresh_token_hash, expires_at) VALUES (?, ?, ?)");
+            $insertToken->bind_param("iss", $user['id'], $refreshTokenHash, $refreshExpires);
+            if (!$insertToken->execute()) {
+                simpleResponse(['success' => false, 'message' => 'Database error']);
+            }
+
+            // 🍪 Access token cookie
+            setcookie("auth_token", $accessToken, [
+                'expires' => time() + $ACCESS_TOKEN_EXP,
                 'path' => '/',
-                'secure' => true,     // HTTPS only
-                'httponly' => true,   // JS cannot access
+                'secure' => true,
+                'httponly' => true,
                 'samesite' => 'Strict'
             ]);
 
-            echo json_encode([
+            // 🍪 Refresh token cookie
+            setcookie("refresh_token", $refreshToken, [
+                'expires' => time() + $REFRESH_TOKEN_EXP,
+                'path' => '/api/refresh.php',
+                'secure' => true,
+                'httponly' => true,
+                'samesite' => 'Strict'
+            ]);
+
+            // STEP 1: get IDs of old tokens (keep latest 5)
+            $cleanup = $conn->prepare("SELECT id FROM user_tokens WHERE user_id = ? ORDER BY created_at DESC LIMIT 100 OFFSET 5");
+
+            if (!$cleanup) {
+                die("Prepare failed: " . $conn->error);
+            }
+
+            $cleanup->bind_param("i", $user['id']);
+            $cleanup->execute();
+            if (!$cleanup->execute()) {
+                simpleResponse(['success' => false, 'message' => 'Database error']);
+            }
+            $result = $cleanup->get_result();
+
+            $ids = [];
+            while ($row = $result->fetch_assoc()) {
+                $ids[] = $row['id'];
+            }
+
+            $cleanup->close();
+
+
+            // STEP 2: delete them if any exist
+            if (!empty($ids)) {
+
+                // Build placeholders (?, ?, ?, ...)
+                $placeholders = implode(',', array_fill(0, count($ids), '?'));
+
+                $types = str_repeat('i', count($ids));
+
+                $delete = $conn->prepare("DELETE FROM user_tokens WHERE id IN ($placeholders)");
+
+                if (!$delete) {
+                    die("Prepare failed: " . $conn->error);
+                }
+
+                $delete->bind_param($types, ...$ids);
+                $delete->execute();
+                $delete->close();
+            }
+
+
+            simpleResponse([
                 'success' => true,
                 'message' => 'Login successful'
             ]);
-            $stmt->close();
-            exit;
+            $fetchUser->close();
+            $updateUser->close();
         } else {
             $failedAttempts = ((int)$user['failed_attempts']) + 1;
             $lockUntil = null;
@@ -155,34 +217,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             // Update DB
-            $stmt2 = $conn->prepare("
+            $updateUser = $conn->prepare("
                 UPDATE users 
                 SET failed_attempts = ?, last_failed_login = NOW(), lock_until = ?
                 WHERE id = ?
             ");
-            $stmt2->bind_param("isi", $failedAttempts, $lockUntil, $user['id']);
-            $stmt2->execute();
+            $updateUser->bind_param("isi", $failedAttempts, $lockUntil, $user['id']);
 
-            echo json_encode([
+            if (!$updateUser->execute()) {
+                simpleResponse(['success' => false, 'message' => 'Database error']);
+            }
+            $fetchUser->close();
+            $updateUser->close();
+            simpleResponse([
                 'success' => false,
                 'message' => $failedAttempts >= $MAX_ATTEMPTS
                     ? 'Account locked for ' . ($LOGIN_LOCK_TIME / 60) . ' minutes.'
                     : 'Invalid credentials'
             ]);
-            $stmt->close();
-            $stmt2->close();
-            exit;
         }
-
     } else {
-        echo json_encode(['success' => false, 'message' => 'Invalid credentials']);
-        $stmt->close();
-        exit;
+        $fetchUser->close();
+        simpleResponse(['success' => false, 'message' => 'Invalid credentials']);
     }
-    
-    
-
 } else {
-    echo json_encode(['success' => false, 'message' => 'Invalid request method']);
-    exit;
+    simpleResponse(['success' => false, 'message' => 'Invalid request method']);
 }
