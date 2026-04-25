@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth UI</title>
+    <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin="anonymous" referrerpolicy="no-referrer" /> -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <style>
+        :root {
+            --bg1: #0f172a;
+            --bg2: #020617;
+            --bg3: #70707258;
+            --card: rgba(255, 255, 255, 0.05);
+            --border: rgba(255, 255, 255, 0.12);
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+            --primary: #8b5cf6;
+            --primary-fade: #5a3d9e;
+            --secondary: #22d3ee;
+            --secondary-fade: #1e9bbd;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        body {
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background:
+                radial-gradient(circle at 20% 20%, rgba(139, 92, 246, 0.25), transparent 40%),
+                radial-gradient(circle at 80% 80%, rgba(34, 211, 238, 0.2), transparent 40%),
+                linear-gradient(135deg, var(--bg1), var(--bg2));
+            color: var(--text);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 420px;
+            padding: 30px;
+            border-radius: 20px;
+            background: var(--card);
+            backdrop-filter: blur(25px);
+            border: 1px solid var(--border);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+        }
+
+        .title {
+            text-align: center;
+            background: linear-gradient(90deg, #a78bfa, #22d3ee);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 30px;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 25px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 12px;
+            background: transparent;
+            color: var(--muted);
+            cursor: pointer;
+            font-weight: 600;
+            transition: .3s;
+        }
+
+        .tab.active {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: #fff;
+            box-shadow: 0 10px 25px rgba(139, 92, 246, 0.4);
+        }
+
+        .panel {
+            display: none;
+        }
+
+        .panel.active {
+            display: block;
+        }
+
+        .field {
+            position: relative;
+            margin-bottom: 18px;
+        }
+
+        .field input {
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text);
+            outline: none;
+        }
+
+        .field label {
+            position: absolute;
+            left: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--muted);
+            font-size: 14px;
+            pointer-events: none;
+            transition: .25s;
+            background: transparent;
+        }
+
+        .field input:focus {
+            border-color: var(--secondary);
+            box-shadow: 0 0 0 3px rgba(198, 245, 252, 0.15);
+        }
+
+        .field input:focus+label,
+        .field input:not(:placeholder-shown)+label {
+            top: -8px;
+            font-size: 11px;
+            background: var(--bg3);
+            padding: 0 6px;
+            color: #67e8f9;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 13px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: #fff;
+            font-weight: bold;
+            cursor: pointer;
+            transition: .3s;
+        }
+
+        .fade {
+            background: linear-gradient(135deg, var(--primary-fade), var(--secondary-fade)) !important;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px rgba(139, 92, 246, 0.4);
+        }
+
+        .link {
+            display: block;
+            text-align: right;
+            margin: 10px 0;
+            font-size: 13px;
+            color: #67e8f9;
+            cursor: pointer;
+        }
+
+        .msg {
+            display: none;
+            padding: 10px;
+            margin-bottom: 25px;
+            border-radius: 10px;
+            font-size: 13px;
+        }
+
+        .pass-toggle {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        .cf-turnstile {
+            margin: 20px 0 20px 0;
+        }
+
+        #toastBox {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 9999;
+        }
+
+        .toast {
+            min-width: 250px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 13px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.3s ease;
+        }
+
+        .toast.success {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+        }
+
+        .toast.error {
+            background: linear-gradient(135deg, #ef4444, #b91c1c);
+        }
+
+        .toast.info {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="toastBox"></div>
+    <div class="container auth-form">
+        <h2 class="title">Account Access</h2>
+
+        <div class="tabs">
+            <button class="tab active" data="loginForm">Login</button>
+            <button class="tab" data="registerForm">Register</button>
+        </div>
+
+        <!-- LOGIN -->
+        <form class="panel active" id="loginForm">
+
+            <div class="field">
+                <input type="email" name="login-email" id="loginEmail" placeholder=" " required>
+                <label>Email</label>
+            </div>
+
+            <div class="field">
+                <input type="password" name="login-password" id="loginPass" placeholder=" " required>
+                <label>Password</label>
+                <span class="pass-toggle" data="loginPass">Show</span>
+            </div>
+
+            <span class="link switch" data="forgotForm">Forgot Password?</span>
+            <div class="cf-turnstile" data-sitekey="0x4AAAAAAC_SlmlB65j2jMo5" data-size="flexible"></div>
+            <button class="btn" id="loginBtn" type="submit">Login</button>
+        </form>
+
+        <!-- REGISTER -->
+        <form class="panel" id="registerForm">
+
+            <div class="field">
+                <input type="text" name="fullname" id="regName" placeholder=" " required>
+                <label>Full Name</label>
+            </div>
+
+            <div class="field">
+                <input type="email" name="reg-email" id="regEmail" placeholder=" " required>
+                <label>Email</label>
+            </div>
+
+            <div class="field">
+                <input type="password" name="reg-password" id="regPass1" placeholder=" " required>
+                <label>Password</label>
+                <span class="pass-toggle" data="regPass1">Show</span>
+            </div>
+
+            <div class="field">
+                <input type="password" name="reg-password-confirm" id="regPass2" placeholder=" " required>
+                <label>Confirm Password</label>
+                <span class="pass-toggle" data="regPass2">Show</span>
+            </div>
+            <div class="cf-turnstile" data-sitekey="0x4AAAAAAC_SlmlB65j2jMo5" data-size="flexible"></div>
+            <button class="btn" id="regBtn" type="submit">Register</button>
+        </form>
+
+        <!-- FORGOT -->
+        <form class="panel" id="forgotForm">
+
+            <div class="field">
+                <input type="email" name="forget-email" id="forgotEmail" placeholder=" " required>
+                <label>Email</label>
+            </div>
+            <div class="cf-turnstile" data-sitekey="0x4AAAAAAC_SlmlB65j2jMo5" data-size="flexible"></div>
+            <button class="btn" id="forgotBtn" type="submit">Send Reset Link</button>
+        </form>
+
+    </div>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <script src="./jquery-3.7.1.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            $('input[type=email]').on('input', function (e) {
+                let value = $(this).val();
+                value = value.replace(/[^a-zA-Z0-9@._+-]/g, '');
+                if (value.length > 64) {
+                    value = value.substring(0, 64);
+                }
+                let parts = value.split('@');
+                if (parts.length > 2) {
+                    value = parts[0] + '@' + parts.slice(1).join('').replace(/@/g, '');
+                }
+                $(this).val(value);
+            });
+
+            $('input[type=password]').on('input', function () {
+                let value = $(this).val();
+                value = value.replace(/\s/g, '');
+                if (value.length > 20) {
+                    value = value.substring(0, 20);
+                }
+                $(this).val(value);
+            });
+
+            $('input[name="fullname"]').on('input', function () {
+                let value = $(this).val();
+                value = value.replace(/[^a-zA-Z ]/g, '');
+                value = value.replace(/\s+/g, ' ');
+                value = value.replace(/^\s/, '');
+                $(this).val(value);
+            });
+
+
+            $('#loginForm').on('submit', function (e) {
+                e.preventDefault();
+
+                let email = $('#loginEmail').val().trim();
+                let password = $('#loginPass').val();
+                let captcha = $('#loginForm input[name="cf-turnstile-response"]').val();
+
+                if (!email || !password) {
+                    return showMsg('All fields required', 'error');
+                }
+
+                if (!captcha) {
+                    return showMsg('Complete captcha', 'error');
+                }
+
+                $.ajax({
+                    url: "/api/login.php",
+                    method: "POST",
+                    contentType: "application/json",
+                    dataType: "json",
+                    data: JSON.stringify({ email, password, captcha }),
+
+                    beforeSend: () => {
+                        $("#loginBtn")
+                            .prop("disabled", true)
+                            .addClass('fade')
+                            .html('<i class="fa-solid fa-circle-notch fa-spin"></i> Logging in...');
+                    },
+
+                    success: function (res) {
+                        if (res.success) {
+                            showMsg('Login successful. Redirecting...', 'success');
+
+                            localStorage.setItem('deviceId', res.deviceId);
+
+                            $('#loginForm')[0].reset();
+                            setTimeout(() => location.href = "/dashboard", 2000);
+                        } else {
+                            showMsg(res.message, 'error');
+                        }
+                        resetBtn('loginBtn', 'Login');
+                        turnstile.reset();
+                    },
+
+                    error: (xhr) => {
+                        resetBtn('loginBtn', 'Login');
+                        turnstile.reset();
+
+                        let msg = xhr.responseJSON?.message || 'Server error';
+                        showMsg(msg, 'error');
+                    }
+                });
+            });
+
+            $('#registerForm').on('submit', function (e) {
+                e.preventDefault();
+
+                let name = $('#regName').val().trim();
+                let email = $('#regEmail').val().trim();
+                let pass1 = $('#regPass1').val();
+                let pass2 = $('#regPass2').val();
+                let captcha = $('#registerForm input[name="cf-turnstile-response"]').val();
+
+                if (!name || !email || !pass1 || !pass2) {
+                    return showMsg('All fields required', 'error');
+                }
+                if (pass1 !== pass2) {
+                    return showMsg('Passwords do not match', 'error');
+                }
+                if (pass1.length < 6) {
+                    return showMsg('Password must be at least 6 characters', 'error');
+                }
+                if (!captcha) {
+                    return showMsg('Complete captcha', 'error');
+                }
+                $.ajax({
+                    url: "/api/register.php",
+                    method: "POST",
+                    contentType: "application/json",
+                    dataType: "json",
+                    data: JSON.stringify({ name, email, password: pass1, captcha }),
+
+                    beforeSend: () => {
+                        $("#regBtn")
+                            .prop("disabled", true)
+                            .addClass('fade')
+                            .html('<i class="fa-solid fa-circle-notch fa-spin"></i> Registering...');
+                    },
+
+                    success: function (res) {
+                        if (res.success) {
+                            showMsg('Registered successfully. Proceed to login', 'success');
+
+                            $('#registerForm')[0].reset();
+                            setTimeout(() => {
+                                $('.tab[data="loginForm"]').click();
+                            }, 1500);
+                        } else {
+                            showMsg(res.message, 'error');
+                        }
+                        resetBtn('regBtn', 'Register');
+                        turnstile.reset();
+                    },
+
+                    error: (xhr) => {
+                        resetBtn('regBtn', 'Register');
+                        turnstile.reset();
+
+                        let msg = xhr.responseJSON?.message || 'Server error';
+                        showMsg(msg, 'error');
+                    }
+                });
+            });
+
+            $('#forgotForm').on('submit', function (e) {
+                e.preventDefault();
+
+                let email = $('#forgotEmail').val().trim();
+                let captcha = $('#forgotForm input[name="cf-turnstile-response"]').val();
+                if (!email) {
+                    return showMsg('Enter email', 'error');
+                }
+
+                if (!captcha) {
+                    return showMsg('Complete captcha', 'error');
+                }
+
+                $.ajax({
+                    url: "/api/forgot.php",
+                    method: "POST",
+                    contentType: "application/json",
+                    dataType: "json",
+                    data: JSON.stringify({ email, captcha }),
+
+                    beforeSend: () => $("#forgotBtn").prop("disabled", true).addClass('fade').html('<i class="fa-solid fa-circle-notch fa-spin fa-xl"></i>'),
+
+                    success: function (res) {
+                        if (res.success) {
+                            showMsg('Reset link sent successfully', 'success');
+                        } else {
+                            $("#forgotBtn").prop("disabled", false).removeClass('fade').text('Send Reset Link');
+                            showMsg(res.message, 'error');
+                        }
+                        $('#forgotForm')[0].reset();
+                        turnstile.reset();
+                    },
+
+                    error: () => {
+                        $("#forgotBtn").prop("disabled", false).removeClass('fade').text('Send Reset Link');
+                        showMsg('Server error', 'error');
+                    }
+                });
+            });
+
+            function showPanel(id) {
+                $(".panel").removeClass("active");
+                $("#" + id).addClass("active");
+
+                $(".tab").removeClass("active");
+                $('.tab[data="' + id + '"]').addClass("active");
+
+                $(".msg").hide();
+            }
+
+            $(".tab, .switch").click(function () {
+                showPanel($(this).attr("data"));
+            });
+
+            $(".pass-toggle").click(function () {
+                let id = $(this).attr("data");
+                let input = $("#" + id);
+
+                if (input.attr("type") === "password") {
+                    input.attr("type", "text");
+                    $(this).text("Hide");
+                } else {
+                    input.attr("type", "password");
+                    $(this).text("Show");
+                }
+            });
+
+        });
+
+        function showMsg(message, type = 'success') {
+            let toast = $(`<div class="toast ${type}">${message}</div>`);
+            $("#toastBox").append(toast);
+            setTimeout(() => {
+                toast.fadeOut(300, function () {
+                    $(this).remove();
+                });
+            }, 3000);
+        }
+
+        function resetBtn(id, text) {
+            $("#" + id)
+                .prop("disabled", false)
+                .removeClass('fade')
+                .text(text);
+        }
+    </script>
+
+</body>
+
+</html>
