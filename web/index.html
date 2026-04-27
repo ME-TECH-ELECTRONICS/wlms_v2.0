@@ -184,13 +184,54 @@
             width: 10px;
             height: 10px;
             border-radius: 50%;
+            /*show pulse animation*/
+
+        }
+
+        .status-dot.good {
             background: var(--good);
-            box-shadow: 0 0 0 6px rgba(61, 220, 151, 0.13);
+            box-shadow: 0 0 0 6px rgba(61, 220, 151, 0.15);
+            animation: pulsegood 2s infinite;
+        }
+
+        .status-dot.danger {
+            background: var(--danger);
+            box-shadow: 0 0 0 6px rgba(255, 107, 107, 0.15);
+            animation: pulsedanger 2s infinite;
         }
 
         .grid {
             display: grid;
             gap: 18px;
+        }
+
+        /*pulse animation*/
+        @keyframes pulsegood {
+            0% {
+                box-shadow: 0 0 0 0 rgba(61, 220, 151, 0.4);
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(61, 220, 151, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(61, 220, 151, 0);
+            }
+        }
+
+        @keyframes pulsedanger {
+            0% {
+                box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.4);
+            }
+
+            70% {
+                box-shadow: 0 0 0 10px rgba(255, 107, 107, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(255, 107, 107, 0);
+            }
         }
 
         .grid.metrics {
@@ -569,6 +610,33 @@
             line-height: 1.5;
         }
 
+        #toastBox {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 9999;
+            min-width: 200px;
+            padding: 12px 18px;
+            border-radius: 14px;
+            box-shadow: var(--shadow);
+        }
+
+        .toast.success {
+            background: rgba(61, 220, 151, 0.15);
+            color: #7ff0bc;
+            border: 1px solid rgba(61, 220, 151, 0.22);
+
+        }
+
+        .toast.error {
+            background: rgba(255, 107, 107, 0.14);
+            color: #ff9e9e;
+            border: 1px solid rgba(255, 107, 107, 0.2);
+        }
+
         @media (max-width: 1080px) {
             .shell {
                 grid-template-columns: 1fr;
@@ -624,7 +692,7 @@
 </head>
 
 <body>
-
+    <div id="toastBox"></div>
     <div class="shell" id="appShell">
         <aside class="sidebar">
             <div class="brand">
@@ -648,11 +716,11 @@
             <div class="topbar">
                 <div class="title">
                     <h2>Control Center</h2>
-                    
+
                 </div>
                 <div class="top-actions">
                     <div class="pill"></span> Last Sync 2 sec ago</div>
-                    <div class="pill"><span class="status-dot"></span> System online</div>
+                    <div class="pill"><span class="status-dot danger"></span> System online</div>
                     <div class="pill" id="clockPill">--:--:--</div>
                 </div>
             </div>
@@ -719,7 +787,8 @@
                                 </svg>
                                 <div class="gauge-label">
                                     <strong>Water Level</strong>
-                                    <span>Thresholds: start at <span id="waterStart">20%</span>, stop at <span id="waterStop">100%</span></span>
+                                    <span>Thresholds: start at <span id="waterStart">20%</span>, stop at <span
+                                            id="waterStop">100%</span></span>
                                 </div>
                             </div>
                             <div class="gauge">
@@ -739,19 +808,39 @@
                                 </svg>
                                 <div class="gauge-label">
                                     <strong>Supply Voltage</strong>
-                                    <span>Safety thresholds: <span id="voltageLow">200V</span> to <span id="voltageHigh">250V</span></span>
+                                    <span>Safety thresholds: <span id="voltageLow">200V</span> to <span
+                                            id="voltageHigh">250V</span></span>
                                 </div>
                             </div>
-                            
+                            <div class="gauge">
+                                <svg viewBox="0 0 200 200" aria-label="volume gauge">
+                                    <circle cx="100" cy="100" r="78" stroke="rgba(255,255,255,0.10)" stroke-width="18"
+                                        fill="none"></circle>
+                                    <circle id="volumeArc" cx="100" cy="100" r="78" stroke="url(#gradVol)"
+                                        stroke-width="18" stroke-linecap="round" fill="none" stroke-dasharray="490"
+                                        stroke-dashoffset="490"></circle>
+                                    <defs>
+                                        <linearGradient id="gradVol" x1="0%" y1="0%" x2="100%" y2="100%">
+                                            <stop offset="0%" stop-color="#4ea1ff" />
+                                            <stop offset="100%" stop-color="#31d0aa" />
+                                        </linearGradient>
+                                    </defs>
+                                    <text x="100" y="108" text-anchor="middle" id="volumeText">228L</text>
+                                </svg>
+                                <div class="gauge-label">
+                                    <strong>Volume of Water</strong>
+                                </div>
+                            </div>
+
                         </div><br>
                         <div class="detail-item">
-                                <div class="left">
-                                    <strong>Motor Status</strong>
-                                    <span>Current command state</span>
-                                </div>
-                                <button class="motor-btn">Start/Stop</button>
-                                <span class="badge good" id="motorState">ON</span>
+                            <div class="left">
+                                <strong>Motor Status</strong>
+                                <span>Current command state</span>
                             </div>
+                            <button class="motor-btn">Start/Stop</button>
+                            <span class="badge good" id="motorState">ON</span>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -794,9 +883,7 @@
                 <div class="panel-header">
                     <div>
                         <h3>Controller Settings</h3>
-                        <small>Change thresholds, calibration values, and security options</small>
                     </div>
-                    <span class="badge good">Protected</span>
                 </div>
 
                 <div class="settings-grid">
@@ -811,52 +898,137 @@
                         <small>Motor should stop when tank reaches this level.</small>
                     </div>
                     <div class="field">
-                        <label for="minVoltage">Minimum voltage to allow motor (V)</label>
-                        <input id="minVoltage" type="number" min="0" step="0.1" value="210" />
+                        <label for="minVoltage">Minimum voltage to allow motor run (V)</label>
+                        <input id="minVoltage" type="number" min="0" step="1" value="210" />
                         <small>Prevent motor start if mains voltage is too low.</small>
                     </div>
                     <div class="field">
-                        <label for="maxVoltage">Maximum voltage safety limit (V)</label>
-                        <input id="maxVoltage" type="number" min="0" step="0.1" value="245" />
-                        <small>Stop motor or raise alarm when voltage is too high.</small>
+                        <label for="maxVoltage">Maximum voltage to allow motor run (V)</label>
+                        <input id="maxVoltage" type="number" min="0" step="1" value="250" />
+                        <small>Stop motor when voltage is too high.</small>
                     </div>
                     <div class="field">
-                        <label for="maxCurrent">Overcurrent limit (A)</label>
-                        <input id="maxCurrent" type="number" min="0" step="0.01" value="3.2" />
-                        <small>Protects against jammed pump or overload.</small>
+                        <label for="dryRunTimeout">Dry run timeout (seconds)</label>
+                        <input id="dryRunTimeout" type="number" min="0" step="1" value="10" />
+                        <small>Minimum check time before dry run is triggered</small>
                     </div>
                     <div class="field">
-                        <label for="motorTimeout">Maximum motor runtime (min)</label>
-                        <input id="motorTimeout" type="number" min="1" value="30" />
+                        <label for="dryRunCancel">Minimum level to cancel Dry Run</label>
+                        <input id="dryRunCancel" type="number" min="5" value="15" />
+                        <small>Cancel dry run if water level rises above this threshold.</small>
+                    </div>
+                    <div class="field">
+                        <label for="motorTimeout">Maximum motor runtime (minutes)</label>
+                        <input id="motorTimeout" type="number" min="1" value="10" />
                         <small>Auto-stop after this duration to reduce damage risk.</small>
                     </div>
+
                     <div class="field">
-                        <label for="apiToken">API token / device key</label>
-                        <input id="apiToken" type="password" value="••••••••••••" />
-                        <small>Use server-managed secrets. Never expose real keys in client-side code.</small>
+                        <label for="deviceId">Device ID</label>
+                        <input id="deviceId" type="password" value="••••••••••••" />
+                        <small>Controller unique identifier</small>
                     </div>
                     <div class="field">
-                        <label for="sessionTimeout">Session timeout (minutes)</label>
-                        <input id="sessionTimeout" type="number" min="5" value="15" />
-                        <small>Auto logout after inactivity.</small>
+                        <label for="wifiSsid">WiFi AP SSID</label>
+                        <input id="wifiSsid" type="text" value="wlms" />
+                        <small>WiFi access point SSID to connect to</small>
+                    </div>
+                    <div class="field">
+                        <label for="wifiPassword">WiFi AP Password</label>
+                        <input id="wifiPassword" type="password" value="wlms@2026" />
+                        <small>WiFi access point password</small>
                     </div>
                 </div>
 
                 <div class="actions">
                     <button class="btn" id="saveSettings">Save Settings</button>
-                    <button class="btn secondary" id="pushToDevice">Push To Controller</button>
-                    <button class="btn secondary" id="logoutBtn">Logout</button>
                 </div>
 
             </section>
         </main>
     </div>
-
+    <script src="./jquery-3.7.1.min.js"></script>
     <script>
+        $(() => {
+            const inputs = [
+                { "id": "startThreshold", "min": 1, "max": 100, "regex": /[^0-9]/g },
+                { "id": "stopThreshold", "min": 1, "max": 100, "regex": /[^0-9]/g },
+                { "id": "minVoltage", "min": 110, "max": 250, "regex": /[^0-9]/g },
+                { "id": "maxVoltage", "min": 110, "max": 250, "regex": /[^0-9]/g },
+                { "id": "dryRunTimeout", "min": 1, "max": 30, "regex": /[^0-9]/g },
+                { "id": "dryRunCancel", "min": 1, "max": 20, "regex": /[^0-9]/g },
+                { "id": "motorTimeout", "min": 1, "max": 20, "regex": /[^0-9]/g },
+                { "id": "deviceId", "min": 1, "max": 100, "regex": /[^a-f0-9]/g },
+                { "id": "wifiSsid", "min": 1, "max": 100, "regex": /[^a-zA-Z0-9]/g },
+                { "id": "wifiPassword", "min": 1, "max": 100, "regex": /[^a-zA-Z0-9_\-@]/g }
+            ]
+
+            for (const input of inputs) {
+                $(`#${input.id}`).on('input', function () {
+                    let value = $(this).val().replace(input.regex, '');
+                    if ($(this).attr('type') === 'password' || $(this).attr('type') === 'text') {
+                        value = value.substring(0, 20);
+                    } else {
+                        if (value && input.min !== undefined && input.max !== undefined) {
+                            value = Math.max(input.min, Math.min(input.max, parseInt(value)));
+                        }
+                    }
+                    return $(this).val(value);
+                });
+            }
+
+            $("#saveSettings").on('click', function () {
+                const payload = {};
+
+                for (const input of inputs) {
+                    let value = $(`#${input.id}`).val();
+
+                    // Convert numeric fields
+                    if (input.regex.toString().includes('[^0-9]')) {
+                        value = parseInt(value, 10);
+                    }
+
+                    payload[input.id] = value;
+                }
+
+                console.log("Sending:", payload);
+
+                $.ajax({
+                    url: "/api/settings.php", // change this
+                    method: "POST",
+                    contentType: "application/json",
+                    data: JSON.stringify(payload),
+                    success: function (res) {
+                        if (res.success) {
+                            showMsg("Settings has been pushed!");
+                        } else {
+                            showMsg("Failed to push settings.", "error");
+                        }
+                    },
+                    error: function (err) {
+                        console.error("Error:", err);
+                        showMsg("An error occurred while saving settings.", "error");
+                    }
+                });
+            });
+
+
+
+        });
+
+        function showMsg(message, type = 'success') {
+            let toast = $(`<div class="toast ${type}">${message}</div>`);
+            $("#toastBox").append(toast);
+            setTimeout(() => {
+                toast.fadeOut(300, function () {
+                    $(this).remove();
+                });
+            }, 3000);
+        }
+
         const appShell = document.getElementById('appShell');
         const loginOverlay = document.getElementById('loginOverlay');
         const demoBtn = document.getElementById('demoBtn');
-        const logoutBtn = document.getElementById('logoutBtn');
         const clockPill = document.getElementById('clockPill');
 
         const waterValue = 72;
@@ -943,7 +1115,7 @@
 
         document.querySelectorAll('.nav button').forEach(btn => {
             let page = btn.dataset.page;
-            if(!page) return;
+            if (!page) return;
             btn.addEventListener('click', () => switchPage(btn.dataset.page));
         });
 
@@ -955,21 +1127,6 @@
             renderLogs();
         });
 
-        document.getElementById('saveSettings').addEventListener('click', () => {
-            alert('Settings saved locally in this template. Connect this form to your backend API to store controller settings securely.');
-        });
-
-        document.getElementById('pushToDevice').addEventListener('click', () => {
-            alert('Send these settings to the controller using your authenticated API endpoint over HTTPS.');
-        });
-
-        logoutBtn.addEventListener('click', () => {
-            localStorage.removeItem('wl_session');
-            appShell.classList.add('hidden');
-            loginOverlay.classList.remove('hidden');
-            document.getElementById('password').value = '';
-        });
-        // Auto-login check on page load
         function checkSession() {
             const session = localStorage.getItem('wl_session');
             if (!session) return;
