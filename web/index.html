@@ -719,8 +719,9 @@
 
                 </div>
                 <div class="top-actions">
-                    <div class="pill"></span> Last Sync 2 sec ago</div>
-                    <div class="pill"><span class="status-dot danger"></span> System online</div>
+                    <div class="pill" id="updateTimer"> Last Sync 2 sec ago</div>
+                    <div class="pill"><span class="status-dot danger"></span><span id="sysStatus">System offline</span>
+                    </div>
                     <div class="pill" id="clockPill">--:--:--</div>
                 </div>
             </div>
@@ -783,12 +784,12 @@
                                             <stop offset="100%" stop-color="#31d0aa" />
                                         </linearGradient>
                                     </defs>
-                                    <text x="100" y="108" text-anchor="middle" id="waterText">72%</text>
+                                    <text x="100" y="108" text-anchor="middle" id="waterText">0%</text>
                                 </svg>
                                 <div class="gauge-label">
                                     <strong>Water Level</strong>
-                                    <span>Thresholds: start at <span id="waterStart">20%</span>, stop at <span
-                                            id="waterStop">100%</span></span>
+                                    <span>Thresholds: start at <span id="waterStart">0%</span>, stop at <span
+                                            id="waterStop">0%</span></span>
                                 </div>
                             </div>
                             <div class="gauge">
@@ -804,12 +805,10 @@
                                             <stop offset="100%" stop-color="#ff6b6b" />
                                         </linearGradient>
                                     </defs>
-                                    <text x="100" y="108" text-anchor="middle" id="voltageText">228V</text>
+                                    <text x="100" y="108" text-anchor="middle" id="voltageText">0V</text>
                                 </svg>
                                 <div class="gauge-label">
                                     <strong>Supply Voltage</strong>
-                                    <span>Safety thresholds: <span id="voltageLow">200V</span> to <span
-                                            id="voltageHigh">250V</span></span>
                                 </div>
                             </div>
                             <div class="gauge">
@@ -825,7 +824,7 @@
                                             <stop offset="100%" stop-color="#31d0aa" />
                                         </linearGradient>
                                     </defs>
-                                    <text x="100" y="108" text-anchor="middle" id="volumeText">228L</text>
+                                    <text x="100" y="108" text-anchor="middle" id="volumeText">0L</text>
                                 </svg>
                                 <div class="gauge-label">
                                     <strong>Volume of Water</strong>
@@ -839,7 +838,7 @@
                                 <span>Current command state</span>
                             </div>
                             <button class="motor-btn">Start/Stop</button>
-                            <span class="badge good" id="motorState">ON</span>
+                            <span class="badge danger" id="motorState">OFF</span>
                         </div>
                     </div>
                 </div>
@@ -898,16 +897,6 @@
                         <small>Motor should stop when tank reaches this level.</small>
                     </div>
                     <div class="field">
-                        <label for="minVoltage">Minimum voltage to allow motor run (V)</label>
-                        <input id="minVoltage" type="number" min="0" step="1" value="210" />
-                        <small>Prevent motor start if mains voltage is too low.</small>
-                    </div>
-                    <div class="field">
-                        <label for="maxVoltage">Maximum voltage to allow motor run (V)</label>
-                        <input id="maxVoltage" type="number" min="0" step="1" value="250" />
-                        <small>Stop motor when voltage is too high.</small>
-                    </div>
-                    <div class="field">
                         <label for="dryRunTimeout">Dry run timeout (seconds)</label>
                         <input id="dryRunTimeout" type="number" min="0" step="1" value="10" />
                         <small>Minimum check time before dry run is triggered</small>
@@ -950,11 +939,11 @@
     <script src="./jquery-3.7.1.min.js"></script>
     <script>
         $(() => {
+            let lastSyncTimer = null;
+            let counter = 0;
             const inputs = [
                 { "id": "startThreshold", "min": 1, "max": 100, "regex": /[^0-9]/g },
                 { "id": "stopThreshold", "min": 1, "max": 100, "regex": /[^0-9]/g },
-                { "id": "minVoltage", "min": 110, "max": 250, "regex": /[^0-9]/g },
-                { "id": "maxVoltage", "min": 110, "max": 250, "regex": /[^0-9]/g },
                 { "id": "dryRunTimeout", "min": 1, "max": 30, "regex": /[^0-9]/g },
                 { "id": "dryRunCancel", "min": 1, "max": 20, "regex": /[^0-9]/g },
                 { "id": "motorTimeout", "min": 1, "max": 20, "regex": /[^0-9]/g },
@@ -979,20 +968,14 @@
 
             $("#saveSettings").on('click', function () {
                 const payload = {};
-
                 for (const input of inputs) {
                     let value = $(`#${input.id}`).val();
-
                     // Convert numeric fields
                     if (input.regex.toString().includes('[^0-9]')) {
                         value = parseInt(value, 10);
                     }
-
                     payload[input.id] = value;
                 }
-
-                console.log("Sending:", payload);
-
                 $.ajax({
                     url: "/api/settings.php", // change this
                     method: "POST",
@@ -1011,6 +994,53 @@
                     }
                 });
             });
+
+            function refreshPage() {
+                $.ajax({
+                    url: `/api/info.php?id=${localStorage.getItem("deviceId")}`,
+                    method: "GET",
+                    success: function (res) {
+                        if (res.success) {
+                            let data = res.data;
+                            clearInterval(lastSyncTimer);
+                            counter = 0;
+                            if (!data.status) {
+                                $(".status-dot").removeClass("good").addClass("danger");
+                                $("#sysStatus").text("System Offline");
+                            } else {
+                                $(".status-dot").removeClass("danger").addClass("good");
+                                $("#sysStatus").text("System Online");
+                            }
+                            setGauge('waterArc', 'waterText', data.waterLevel, data.waterLevel, '%');
+                            setGauge('voltageArc', 'voltageText', toPercent(data.voltage), data.voltage, 'V');
+                            setGauge('volumeArc', 'volumeText', toPercent(data.voltage), data.voltage, 'V');
+
+                            lastSyncTimer = setInterval(() => {
+                                $("#updateTimer").text(`last sync ${counter}s ago`)
+                                counter++;
+                            }, 1000);
+                            if (!data.motorStatus) {
+                                $("#motorState").removeClass("good").addClass("danger").text("OFF");
+                            } else {
+                                $("#motorState").removeClass("danger").addClass("good").text("ON");
+                            }
+                        } else {
+                            $(".status-dot").removeClass("good").addClass("danger");
+                            $("#sysStatus").text("Failed to fetch data");
+                        }
+                    },
+                    error: function () {
+                        $(".status-dot").removeClass("good").addClass("danger");
+                        $("#sysStatus").text("Connection Error");
+                    }
+                });
+            }
+            function toPercent(value, min = 220, max = 255) {
+                let percent = ((value - min) / (max - min)) * 100;
+                percent = Math.max(0, Math.min(100, percent));
+                return percent;
+            }
+            setInterval(refreshPage, 10000);
 
 
 
@@ -1049,19 +1079,24 @@
         let logNewestFirst = true;
         let currentPage = 'dashboard';
 
-        function setGauge(arcId, textId, percent, suffix = '%') {
-            const circle = document.getElementById(arcId);
-            const text = document.getElementById(textId);
+        function setGauge(arcId, textId, percent, text, suffix = '%') {
+            const $circle = $('#' + arcId);
+            const $text = $('#' + textId);
             const circumference = 2 * Math.PI * 78;
             const offset = circumference - (percent / 100) * circumference;
-            circle.style.strokeDasharray = circumference.toFixed(2);
-            circle.style.strokeDashoffset = offset.toFixed(2);
-            text.textContent = `${Math.round(percent)}${suffix}`;
+            $circle.css({
+                'stroke-dasharray': circumference.toFixed(2),
+                'stroke-dashoffset': offset.toFixed(2)
+            });
+
+            $text.text(text + suffix);
         }
 
         function updateClock() {
             const now = new Date();
-            clockPill.textContent = now.toLocaleTimeString([], { hour12: false });
+            $('#clockPill').text(
+                now.toLocaleTimeString([], { hour12: false })
+            );
         }
 
         function renderLogs() {
@@ -1101,17 +1136,7 @@
             document.getElementById('page-settings').classList.toggle('hidden', page !== 'settings');
         }
 
-        function initDashboard() {
-            document.getElementById('waterValue').textContent = `${waterValue}%`;
-            document.getElementById('voltageValue').textContent = `${voltageValue.toFixed(1)}V`;
-            document.getElementById('currentValue').textContent = `${currentValue.toFixed(2)}A`;
-            document.getElementById('motorState').textContent = 'ON';
-            document.getElementById('motorBadge').textContent = 'Running';
-            setGauge('waterArc', 'waterText', waterValue, '%');
-            setGauge('voltageArc', 'voltageText', voltageValue, 'V');
-            renderLogs();
-            updateClock();
-        }
+
 
         document.querySelectorAll('.nav button').forEach(btn => {
             let page = btn.dataset.page;
@@ -1149,8 +1174,8 @@
 
         setInterval(updateClock, 1000);
         updateClock();
-        setGauge('waterArc', 'waterText', waterValue, '%');
-        setGauge('voltageArc', 'voltageText', 2, 'V');
+        // setGauge('waterArc', 'waterText', waterValue, '%');
+        // setGauge('voltageArc', 'voltageText', 2, 'V');
     </script>
 </body>
 
