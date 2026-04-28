@@ -1005,7 +1005,8 @@
                             let data = res.data;
                             clearInterval(lastSyncTimer);
                             counter = 0;
-                            if (!data.status) {
+
+                            if (!data.success) {
                                 $(".status-dot").removeClass("good").addClass("danger");
                                 $("#sysStatus").text("System Offline");
                             } else {

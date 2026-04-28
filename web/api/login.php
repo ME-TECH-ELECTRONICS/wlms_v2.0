@@ -200,11 +200,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $delete->close();
             }
 
-
-            simpleResponse([
-                'success' => true,
-                'message' => 'Login successful'
-            ]);
+            $deviceInfo = $conn->prepare("SELECT * FROM user_devices WHERE user_id = ?");
+            $deviceInfo->bind_param("i", $user['id']);
+            if (!$deviceInfo->execute()) {
+                simpleResponse(['success' => false, 'message' => 'Database error']);
+            }
+            $result = $deviceInfo->get_result();
+            if ($result->num_rows > 0) {
+                $row = $result->fetch_assoc();
+                simpleResponse([
+                    'success' => true,
+                    'message' => 'Login successful',
+                    'devices' => $row['device_id']
+                ]);
+            } else {
+                simpleResponse([
+                    'success' => true,
+                    'message' => 'Login successful'
+                ]);
+            }
             $fetchUser->close();
             $updateUser->close();
         } else {
