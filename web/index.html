@@ -941,6 +941,7 @@
         $(() => {
             let lastSyncTimer = null;
             let counter = 0;
+            let inititalPageLoad = true;
             const inputs = [
                 { "id": "startThreshold", "min": 1, "max": 100, "regex": /[^0-9]/g },
                 { "id": "stopThreshold", "min": 1, "max": 100, "regex": /[^0-9]/g },
@@ -997,7 +998,7 @@
 
             function refreshPage() {
                 $.ajax({
-                    url: `/api/info.php?id=${localStorage.getItem("deviceId")}`,
+                    url: `/api/dash_info.php?id=${localStorage.getItem("deviceId")}`,
                     method: "GET",
                     success: function (res) {
                         if (res.success) {
@@ -1011,7 +1012,7 @@
                                 $(".status-dot").removeClass("danger").addClass("good");
                                 $("#sysStatus").text("System Online");
                             }
-                            setGauge('waterArc', 'waterText', data.waterLevel, data.waterLevel, '%');
+                            setGauge('waterArc', 'waterText', data.level, data.level, '%');
                             setGauge('voltageArc', 'voltageText', toPercent(data.voltage), data.voltage, 'V');
                             setGauge('volumeArc', 'volumeText', toPercent(data.voltage), data.voltage, 'V');
 

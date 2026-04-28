@@ -302,7 +302,7 @@
 
     </div>
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-    <script src="./jquery-3.7.1.min.js"></script>
+    <script src="/jquery-3.7.1.min.js"></script>
     <script>
         $(document).ready(function () {
             $('input[type=email]').on('input', function (e) {
@@ -372,7 +372,7 @@
                             localStorage.setItem('deviceId', res.deviceId);
 
                             $('#loginForm')[0].reset();
-                            setTimeout(() => location.href = "/dashboard", 2000);
+                            setTimeout(() => location.href = "/", 2000);
                         } else {
                             showMsg(res.message, 'error');
                         }
