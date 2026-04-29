@@ -726,7 +726,7 @@
                 </div>
             </div>
 
-            <section id="page-dashboard" class="grid">
+            <section id="page-dashboard" class="grid page">
                 <!-- <div class="grid metrics">
                     <div class="card metric-card water">
                         <div class="metric-head">
@@ -844,7 +844,7 @@
                 </div>
             </section>
 
-            <section id="page-logs" class="card panel hidden" style="margin-top:18px;">
+            <section id="page-logs" class="card panel hidden page" style="margin-top:18px;">
                 <div class="panel-header">
                     <div>
                         <h3>Action Logs</h3>
@@ -878,7 +878,7 @@
                 </div>
             </section>
 
-            <section id="page-settings" class="card panel hidden" style="margin-top:18px;">
+            <section id="page-settings" class="card panel hidden page" style="margin-top:18px;">
                 <div class="panel-header">
                     <div>
                         <h3>Controller Settings</h3>
@@ -997,6 +997,7 @@
             });
 
             function refreshPage() {
+                if (!document.hasFocus()) return;
                 $.ajax({
                     url: `/api/dash_info.php?id=${localStorage.getItem("deviceId")}`,
                     method: "GET",
@@ -1006,13 +1007,10 @@
                             clearInterval(lastSyncTimer);
                             counter = 0;
 
-                            if (!data.success) {
-                                $(".status-dot").removeClass("good").addClass("danger");
-                                $("#sysStatus").text("System Offline");
-                            } else {
-                                $(".status-dot").removeClass("danger").addClass("good");
-                                $("#sysStatus").text("System Online");
-                            }
+                            $(".status-dot").removeClass("danger").addClass("good");
+                            $("#sysStatus").text("System Online");
+
+
                             setGauge('waterArc', 'waterText', data.level, data.level, '%');
                             setGauge('voltageArc', 'voltageText', toPercent(data.voltage), data.voltage, 'V');
                             setGauge('volumeArc', 'volumeText', toPercent(data.voltage), data.voltage, 'V');
@@ -1028,7 +1026,7 @@
                             }
                         } else {
                             $(".status-dot").removeClass("good").addClass("danger");
-                            $("#sysStatus").text("Failed to fetch data");
+                            $("#sysStatus").text("System Offline");
                         }
                     },
                     error: function () {
@@ -1037,15 +1035,35 @@
                     }
                 });
             }
+
             function toPercent(value, min = 220, max = 255) {
                 let percent = ((value - min) / (max - min)) * 100;
                 percent = Math.max(0, Math.min(100, percent));
                 return percent;
             }
-            setInterval(refreshPage, 10000);
+            setInterval(refreshPage, 5000);
+
+            $(".nav button").on("click", function () {
+                let page = $(this).data("page");
+                if(!page) return;
+                $('.page').addClass("hidden");
+            })
+        });
+
+        function switchPage(page) {
+            currentPage = page;
+            document.querySelectorAll('.nav button').forEach(btn => btn.classList.toggle('active', btn.dataset.page === page));
+            document.getElementById('page-dashboard').classList.toggle('hidden', page !== 'dashboard');
+            document.getElementById('page-logs').classList.toggle('hidden', page !== 'logs');
+            document.getElementById('page-settings').classList.toggle('hidden', page !== 'settings');
+        }
 
 
 
+        document.querySelectorAll('.nav button').forEach(btn => {
+            let page = btn.dataset.page;
+            if (!page) return;
+            btn.addEventListener('click', () => switchPage(btn.dataset.page));
         });
 
         function showMsg(message, type = 'success') {
@@ -1130,21 +1148,7 @@
             }).join('') || `<tr><td colspan="4" style="color:#95a8c7;">No log entries found.</td></tr>`;
         }
 
-        function switchPage(page) {
-            currentPage = page;
-            document.querySelectorAll('.nav button').forEach(btn => btn.classList.toggle('active', btn.dataset.page === page));
-            document.getElementById('page-dashboard').classList.toggle('hidden', page !== 'dashboard');
-            document.getElementById('page-logs').classList.toggle('hidden', page !== 'logs');
-            document.getElementById('page-settings').classList.toggle('hidden', page !== 'settings');
-        }
-
-
-
-        document.querySelectorAll('.nav button').forEach(btn => {
-            let page = btn.dataset.page;
-            if (!page) return;
-            btn.addEventListener('click', () => switchPage(btn.dataset.page));
-        });
+        
 
         document.getElementById('logSearch').addEventListener('input', renderLogs);
         document.getElementById('logFilter').addEventListener('change', renderLogs);
