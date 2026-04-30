@@ -396,6 +396,7 @@
             border: none;
             cursor: pointer;
             font-weight: 600;
+            min-width: 80px;
         }
 
         .detail-item .left {
@@ -527,7 +528,8 @@
         }
 
         .field {
-            display: grid;
+            display: flex;
+            flex-direction: column;
             gap: 8px;
         }
 
@@ -704,6 +706,7 @@
 
             <nav class="nav">
                 <button class="active" data-page="dashboard">Dashboard</button>
+                <button data-page="devices">Devices</button>
                 <button data-page="logs">Action Logs</button>
                 <button data-page="settings">Settings</button>
                 <button id="logout">Logout</button>
@@ -726,44 +729,7 @@
                 </div>
             </div>
 
-            <section id="page-dashboard" class="grid page">
-                <!-- <div class="grid metrics">
-                    <div class="card metric-card water">
-                        <div class="metric-head">
-                            <div>
-                                <h3>Water Level</h3>
-                                <span>Tank fill percentage</span>
-                            </div>
-                            <span class="badge good">Normal</span>
-                        </div>
-                        <div class="metric-value" id="waterValue">72%</div>
-                        <div class="metric-sub">Thresholds: start at 35%, stop at 90%</div>
-                    </div>
-
-                    <div class="card metric-card voltage">
-                        <div class="metric-head">
-                            <div>
-                                <h3>Voltage</h3>
-                                <span>Motor supply line</span>
-                            </div>
-                            <span class="badge neutral">Stable</span>
-                        </div>
-                        <div class="metric-value" id="voltageValue">228.4V</div>
-                        <div class="metric-sub">Safe operating range: 210V–245V</div>
-                    </div>
-
-                    <div class="card metric-card motor">
-                        <div class="metric-head">
-                            <div>
-                                <h3>Motor Current</h3>
-                                <span>Load and health indicator</span>
-                            </div>
-                            <span class="badge good" id="motorBadge">Running</span>
-                        </div>
-                        <div class="metric-value" id="currentValue">1.86A</div>
-                        <div class="metric-sub">Power draw tracked for fault detection and dry-run protection</div>
-                    </div>
-                </div> -->
+            <section id="page-dashboard" class="grid page hidden">
 
                 <div class="section">
                     <div class="card panel">
@@ -841,6 +807,21 @@
                             <span class="badge danger" id="motorState">OFF</span>
                         </div>
                     </div>
+                </div>
+            </section>
+
+            <section id="page-devices" class="card panel page">
+                <div class="panel-header">
+                    <div>
+                        <h3>Devices</h3>
+                    </div>
+                </div>
+                <div class="detail-item">
+                    <div>
+                        <label for="startThreshold">Device ID</label>
+                        <input class="input" id="addDevice" type="text" min="0" max="100" value="35" style="width: 350px;margin-left:10px;" />
+                    </div>
+                    <button class="motor-btn">Add</button>
                 </div>
             </section>
 
@@ -948,7 +929,7 @@
                 { "id": "dryRunTimeout", "min": 1, "max": 30, "regex": /[^0-9]/g },
                 { "id": "dryRunCancel", "min": 1, "max": 20, "regex": /[^0-9]/g },
                 { "id": "motorTimeout", "min": 1, "max": 20, "regex": /[^0-9]/g },
-                { "id": "deviceId", "min": 1, "max": 100, "regex": /[^a-f0-9]/g },
+                { "id": "addDevice", "min": 1, "max": 100, "regex": /[^a-f0-9]/g },
                 { "id": "wifiSsid", "min": 1, "max": 100, "regex": /[^a-zA-Z0-9]/g },
                 { "id": "wifiPassword", "min": 1, "max": 100, "regex": /[^a-zA-Z0-9_\-@]/g }
             ]
@@ -1045,26 +1026,29 @@
 
             $(".nav button").on("click", function () {
                 let page = $(this).data("page");
-                if(!page) return;
+                if (!page) return;
                 $('.page').addClass("hidden");
+                $(".nav button").removeClass("active");
+                $(this).addClass("active");
+                $(`#page-${page}`).removeClass("hidden");
             })
         });
 
-        function switchPage(page) {
-            currentPage = page;
-            document.querySelectorAll('.nav button').forEach(btn => btn.classList.toggle('active', btn.dataset.page === page));
-            document.getElementById('page-dashboard').classList.toggle('hidden', page !== 'dashboard');
-            document.getElementById('page-logs').classList.toggle('hidden', page !== 'logs');
-            document.getElementById('page-settings').classList.toggle('hidden', page !== 'settings');
-        }
+        // function switchPage(page) {
+        //     currentPage = page;
+        //     document.querySelectorAll('.nav button').forEach(btn => btn.classList.toggle('active', btn.dataset.page === page));
+        //     document.getElementById('page-dashboard').classList.toggle('hidden', page !== 'dashboard');
+        //     document.getElementById('page-logs').classList.toggle('hidden', page !== 'logs');
+        //     document.getElementById('page-settings').classList.toggle('hidden', page !== 'settings');
+        // }
 
 
 
-        document.querySelectorAll('.nav button').forEach(btn => {
-            let page = btn.dataset.page;
-            if (!page) return;
-            btn.addEventListener('click', () => switchPage(btn.dataset.page));
-        });
+        // document.querySelectorAll('.nav button').forEach(btn => {
+        //     let page = btn.dataset.page;
+        //     if (!page) return;
+        //     btn.addEventListener('click', () => switchPage(btn.dataset.page));
+        // });
 
         function showMsg(message, type = 'success') {
             let toast = $(`<div class="toast ${type}">${message}</div>`);
@@ -1148,7 +1132,7 @@
             }).join('') || `<tr><td colspan="4" style="color:#95a8c7;">No log entries found.</td></tr>`;
         }
 
-        
+
 
         document.getElementById('logSearch').addEventListener('input', renderLogs);
         document.getElementById('logFilter').addEventListener('change', renderLogs);
