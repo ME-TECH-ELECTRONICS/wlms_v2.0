@@ -5,6 +5,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Water Level Controller Admin Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
     <style>
         :root {
             --bg: #07111f;
@@ -43,8 +45,8 @@
         }
 
         .shell {
-            display: grid;
-            grid-template-columns: 280px 1fr;
+            display: flex;
+            flex-direction: row;
             min-height: 100vh;
         }
 
@@ -62,7 +64,7 @@
             display: flex;
             align-items: center;
             gap: 14px;
-            margin-bottom: 28px;
+            margin-bottom: 15px;
         }
 
         .brand-badge {
@@ -89,10 +91,24 @@
             font-size: 0.85rem;
         }
 
+        .hamburger {
+            display: none;
+            background: #0f1627;
+            border: none;
+            cursor: pointer;
+            padding: 8px;
+            color: var(--text);
+            margin-left: -8px;
+            position: absolute;
+            top: 20px;
+            right: 20px;
+        }
+
         .nav {
-            display: grid;
+            display: flex;
+            flex-direction: column;
             gap: 10px;
-            margin-top: 12px;
+            margin-top: 10px;
         }
 
         .nav button {
@@ -140,6 +156,9 @@
         }
 
         .main {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
             padding: 24px;
         }
 
@@ -201,7 +220,8 @@
         }
 
         .grid {
-            display: grid;
+            display: flex;
+            flex: 1;
             gap: 18px;
         }
 
@@ -300,6 +320,7 @@
             flex-wrap: wrap;
             flex-direction: column;
             gap: 18px;
+            flex: 1;
         }
 
         .panel {
@@ -388,7 +409,7 @@
             gap: 12px;
         }
 
-        .motor-btn {
+        .motor-btn, .device-btn {
             padding: 8px 14px;
             border-radius: 14px;
             background: linear-gradient(135deg, var(--accent), var(--accent2));
@@ -472,6 +493,7 @@
             border-radius: 14px;
             padding: 12px 14px;
             outline: none;
+            min-width: 250px;
         }
 
         .input::placeholder {
@@ -616,7 +638,7 @@
             position: fixed;
             top: 20px;
             right: 20px;
-            display: flex;
+            display: none;
             flex-direction: column;
             gap: 10px;
             z-index: 9999;
@@ -641,12 +663,17 @@
 
         @media (max-width: 1080px) {
             .shell {
-                grid-template-columns: 1fr;
+                display: flex;
+                flex-direction: column;
             }
 
             .sidebar {
                 position: relative;
                 height: auto;
+            }
+
+            .nav {
+                display: none;
             }
 
             .section {
@@ -658,6 +685,11 @@
             .motor {
                 grid-column: span 12;
             }
+
+            .hamburger {
+                display: block;
+                margin-left: -8px;
+            }
         }
 
         @media (max-width: 700px) {
@@ -665,6 +697,28 @@
             .main,
             .sidebar {
                 padding: 16px;
+            }
+
+            .sidebar {
+                height: auto;
+            }
+
+            .shell {
+                display: flex;
+                flex-direction: column;
+            }
+
+            .input,
+            .select,
+            .field input,
+            .field select {
+                padding: 10px 12px;
+                width: 100%;
+            }
+
+            .device-id-field {
+                flex-direction: column;
+
             }
 
             .chart-wrap,
@@ -704,6 +758,8 @@
                 </div>
             </div>
 
+            <!-- button with hambuerer icon -->
+            <button class="hamburger" id="menu"><i class="fa-solid fa-bars fa-2xl"></i></button>
             <nav class="nav">
                 <button class="active" data-page="dashboard">Dashboard</button>
                 <button data-page="devices">Devices</button>
@@ -729,7 +785,7 @@
                 </div>
             </div>
 
-            <section id="page-dashboard" class="grid page hidden">
+            <section id="page-dashboard" class="grid page">
 
                 <div class="section">
                     <div class="card panel">
@@ -810,18 +866,18 @@
                 </div>
             </section>
 
-            <section id="page-devices" class="card panel page">
+            <section id="page-devices" class="card panel page hidden">
                 <div class="panel-header">
                     <div>
                         <h3>Devices</h3>
                     </div>
                 </div>
-                <div class="detail-item">
-                    <div>
+                <div class="detail-item ">
+                    <div class="field">
                         <label for="startThreshold">Device ID</label>
-                        <input class="input" id="addDevice" type="text" min="0" max="100" value="35" style="width: 350px;margin-left:10px;" />
+                        <input class="input" id="deviceId" type="text" />
                     </div>
-                    <button class="motor-btn">Add</button>
+                    <button class="device-btn" id="addDeviceBtn">Add</button>
                 </div>
             </section>
 
@@ -892,12 +948,6 @@
                         <input id="motorTimeout" type="number" min="1" value="10" />
                         <small>Auto-stop after this duration to reduce damage risk.</small>
                     </div>
-
-                    <div class="field">
-                        <label for="deviceId">Device ID</label>
-                        <input id="deviceId" type="password" value="••••••••••••" />
-                        <small>Controller unique identifier</small>
-                    </div>
                     <div class="field">
                         <label for="wifiSsid">WiFi AP SSID</label>
                         <input id="wifiSsid" type="text" value="wlms" />
@@ -929,16 +979,16 @@
                 { "id": "dryRunTimeout", "min": 1, "max": 30, "regex": /[^0-9]/g },
                 { "id": "dryRunCancel", "min": 1, "max": 20, "regex": /[^0-9]/g },
                 { "id": "motorTimeout", "min": 1, "max": 20, "regex": /[^0-9]/g },
-                { "id": "addDevice", "min": 1, "max": 100, "regex": /[^a-f0-9]/g },
-                { "id": "wifiSsid", "min": 1, "max": 100, "regex": /[^a-zA-Z0-9]/g },
-                { "id": "wifiPassword", "min": 1, "max": 100, "regex": /[^a-zA-Z0-9_\-@]/g }
+                { "id": "deviceId", "min": 1, "max": 12, "regex": /[^a-f0-9]/g },
+                { "id": "wifiSsid", "min": 1, "max": 32, "regex": /[^a-zA-Z0-9]/g },
+                { "id": "wifiPassword", "min": 1, "max": 32, "regex": /[^a-zA-Z0-9_\-@]/g }
             ]
 
             for (const input of inputs) {
                 $(`#${input.id}`).on('input', function () {
                     let value = $(this).val().replace(input.regex, '');
                     if ($(this).attr('type') === 'password' || $(this).attr('type') === 'text') {
-                        value = value.substring(0, 20);
+                        value = value.substring(0, input.max);
                     } else {
                         if (value && input.min !== undefined && input.max !== undefined) {
                             value = Math.max(input.min, Math.min(input.max, parseInt(value)));
@@ -951,6 +1001,7 @@
             $("#saveSettings").on('click', function () {
                 const payload = {};
                 for (const input of inputs) {
+                    if(input.id === "deviceId") continue;
                     let value = $(`#${input.id}`).val();
                     // Convert numeric fields
                     if (input.regex.toString().includes('[^0-9]')) {
@@ -1031,28 +1082,50 @@
                 $(".nav button").removeClass("active");
                 $(this).addClass("active");
                 $(`#page-${page}`).removeClass("hidden");
-            })
+            });
+
+            $('#menu').on('click', function () {
+                const $nav = $('.nav');
+
+                if ($nav.is(':visible')) {
+                    $nav.slideUp(200);
+                } else {
+                    $nav.slideDown(500, function () {
+                        $(this).css('display', 'flex');
+                    });
+                }
+            });
+
+            $("#addDeviceBtn").on("click", function () {
+                const deviceId = $("#deviceId").val().trim();
+                if (!deviceId || deviceId.length !== 12) {
+                    showMsg("Please enter a valid device ID.", "error");
+                    return;
+                }
+                $.ajax({
+                    url: "/api/add_device.php",
+                    method: "POST",
+                    contentType: "application/json",
+                    data: JSON.stringify({ deviceId }),
+                    success: function (res) {
+                        if (res.success) {
+                            localStorage.setItem("deviceId", deviceId);
+                            showMsg("Device added successfully!");
+                        } else {
+                            showMsg(res.message || "Failed to add device.", "error");
+                        }
+                    },
+                    error: function (err) {
+                        console.error("Error:", err);
+                        showMsg("An error occurred while adding the device.", "error");
+                    }
+                });
+            });
         });
-
-        // function switchPage(page) {
-        //     currentPage = page;
-        //     document.querySelectorAll('.nav button').forEach(btn => btn.classList.toggle('active', btn.dataset.page === page));
-        //     document.getElementById('page-dashboard').classList.toggle('hidden', page !== 'dashboard');
-        //     document.getElementById('page-logs').classList.toggle('hidden', page !== 'logs');
-        //     document.getElementById('page-settings').classList.toggle('hidden', page !== 'settings');
-        // }
-
-
-
-        // document.querySelectorAll('.nav button').forEach(btn => {
-        //     let page = btn.dataset.page;
-        //     if (!page) return;
-        //     btn.addEventListener('click', () => switchPage(btn.dataset.page));
-        // });
 
         function showMsg(message, type = 'success') {
             let toast = $(`<div class="toast ${type}">${message}</div>`);
-            $("#toastBox").append(toast);
+            $("#toastBox").append(toast).css('display', 'flex');
             setTimeout(() => {
                 toast.fadeOut(300, function () {
                     $(this).remove();
