@@ -1,8 +1,6 @@
 <?php
-require __DIR__ . '/../vendor/autoload.php';
-
-include_once 'config.php';
-include_once 'db.php';
+require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/../api/config.php';
 
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
@@ -10,8 +8,7 @@ use Firebase\JWT\Key;
 header('Content-Type: application/json');
 
 // ✅ Helper
-function respond($data, $code = 200)
-{
+function respond($data, $code = 200) {
     http_response_code($code);
     echo json_encode($data);
     exit;
@@ -117,8 +114,7 @@ try {
 // =========================
 // 🍪 CLEAR COOKIES
 // =========================
-function clearCookie($name, $path = '/')
-{
+function clearCookie($name, $path = '/') {
     setcookie($name, '', [
         'expires' => time() - 3600,
         'path' => $path,

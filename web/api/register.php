@@ -1,6 +1,5 @@
 <?php
 include_once 'config.php';
-include_once 'db.php';
 include_once 'utility.php';
 include_once __DIR__ . '/../templates/email.php';
 
@@ -32,10 +31,10 @@ if (!$name || !$email || !$password || !$captcha) {
     exit;
 }
 
-// if (!validateCaptcha($captcha, $CAPTCHA_SECRET)) {
-//     echo json_encode(['success' => false, 'message' => 'Captcha failed']);
-//     exit;
-// }
+if (!validateCaptcha($captcha, $CAPTCHA_SECRET)) {
+    echo json_encode(['success' => false, 'message' => 'Captcha failed']);
+    exit;
+}
 
 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
     echo json_encode(['success' => false, 'message' => 'Invalid email']);

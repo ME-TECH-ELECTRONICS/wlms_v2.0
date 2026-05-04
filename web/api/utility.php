@@ -1,8 +1,7 @@
 <?php
 include_once "config.php";
 //validate cloudeflare turnstile captcha
-function validateCaptcha($token, $secretKey)
-{
+function validateCaptcha(string $token, string $secretKey): array|bool {
     $url = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 
     $data = [
@@ -28,8 +27,7 @@ function validateCaptcha($token, $secretKey)
     return $result['success'] ?? false;
 }
 
-function sendMail($api_key, $email, $name, $subject, $message)
-{
+function sendMail(string $api_key, string $email, string $name, string $subject, string $message): array {
     $url = "https://api.brevo.com/v3/smtp/email";
 
     $data = [
@@ -94,12 +92,13 @@ function sendMail($api_key, $email, $name, $subject, $message)
     ];
 }
 
-function generateRandomToken($length = 32) {
+function generateRandomToken(int $length = 32): string {
     return bin2hex(random_bytes($length));
 }
 
-function simpleResponse($data) {
+function simpleResponse(array $data, int $code = 200): void {
     header('Content-Type: application/json');
+    http_response_code($code);
     echo json_encode($data);
     exit;
 }

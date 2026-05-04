@@ -17,5 +17,10 @@ $DOMAIN_NAME = $_ENV['DOMAIN_NAME'] ?? null;
 $MAX_LOGIN_ATTEMPTS = 5;
 $LOGIN_LOCK_TIME = 300;
 
-$ACCESS_TOKEN_EXP = 3600; // 15 minutes
-$REFRESH_TOKEN_EXP = 604800; // 7 days
+$ACCESS_TOKEN_EXP = 3600;
+$REFRESH_TOKEN_EXP = 604800;
+
+$conn = new mysqli($DB_HOST, $DB_USER, $DB_PASS, $DB_NAME);
+if (!$conn) {
+    die("{'success': false, 'message': 'Database Error " . $conn->connect_error . "'}");
+}

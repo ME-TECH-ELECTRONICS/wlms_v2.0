@@ -368,8 +368,7 @@
                     success: function (res) {
                         if (res.success) {
                             showMsg('Login successful. Redirecting...', 'success');
-
-                            localStorage.setItem('deviceId', res.devices);
+                            if (res.devices) localStorage.setItem('deviceId', res.devices);
 
                             $('#loginForm')[0].reset();
                             setTimeout(() => location.href = "/", 2000);

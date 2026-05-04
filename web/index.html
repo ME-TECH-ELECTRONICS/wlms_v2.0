@@ -409,7 +409,8 @@
             gap: 12px;
         }
 
-        .motor-btn, .device-btn {
+        .motor-btn,
+        .device-btn {
             padding: 8px 14px;
             border-radius: 14px;
             background: linear-gradient(135deg, var(--accent), var(--accent2));
@@ -648,17 +649,37 @@
             box-shadow: var(--shadow);
         }
 
-        .toast.success {
-            background: rgba(61, 220, 151, 0.15);
-            color: #7ff0bc;
-            border: 1px solid rgba(61, 220, 151, 0.22);
+        .toast {
+            min-width: 250px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            color: #fff;
+            font-size: 13px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            animation: slideIn 0.3s ease;
+        }
 
+        .toast.success {
+            background: linear-gradient(135deg, #22c55e, #16a34a);
         }
 
         .toast.error {
-            background: rgba(255, 107, 107, 0.14);
-            color: #ff9e9e;
-            border: 1px solid rgba(255, 107, 107, 0.2);
+            background: linear-gradient(135deg, #ef4444, #b91c1c);
+        }
+
+        .toast.info {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+        }
+
+        .input-wrap {
+            position: relative;
+        }
+
+        .password-show {
+            position: absolute;
+            top: 25%;
+            right: 15px;
+            cursor: pointer;
         }
 
         @media (max-width: 1080px) {
@@ -859,7 +880,7 @@
                                 <strong>Motor Status</strong>
                                 <span>Current command state</span>
                             </div>
-                            <button class="motor-btn">Start/Stop</button>
+                            <button class="motor-btn" id="motorStartBtn">Start/Stop</button>
                             <span class="badge danger" id="motorState">OFF</span>
                         </div>
                     </div>
@@ -955,7 +976,10 @@
                     </div>
                     <div class="field">
                         <label for="wifiPassword">WiFi AP Password</label>
-                        <input id="wifiPassword" type="password" value="wlms@2026" />
+                        <div class="input-wrap">
+                            <input id="wifiPassword" type="password" value="wlms@2026" style="position: relative;" />
+                            <i class="fa-solid fa-eye password-show"></i>
+                        </div>
                         <small>WiFi access point password</small>
                     </div>
                 </div>
@@ -979,7 +1003,7 @@
                 { "id": "dryRunTimeout", "min": 1, "max": 30, "regex": /[^0-9]/g },
                 { "id": "dryRunCancel", "min": 1, "max": 20, "regex": /[^0-9]/g },
                 { "id": "motorTimeout", "min": 1, "max": 20, "regex": /[^0-9]/g },
-                { "id": "deviceId", "min": 1, "max": 12, "regex": /[^a-f0-9]/g },
+                { "id": "deviceId", "min": 12, "max": 12, "regex": /[^a-fA-F0-9]/g },
                 { "id": "wifiSsid", "min": 1, "max": 32, "regex": /[^a-zA-Z0-9]/g },
                 { "id": "wifiPassword", "min": 1, "max": 32, "regex": /[^a-zA-Z0-9_\-@]/g }
             ]
@@ -1001,7 +1025,7 @@
             $("#saveSettings").on('click', function () {
                 const payload = {};
                 for (const input of inputs) {
-                    if(input.id === "deviceId") continue;
+                    if (input.id === "deviceId") continue;
                     let value = $(`#${input.id}`).val();
                     // Convert numeric fields
                     if (input.regex.toString().includes('[^0-9]')) {
@@ -1009,8 +1033,9 @@
                     }
                     payload[input.id] = value;
                 }
+                payload.deviceId = localStorage.getItem("deviceId");
                 $.ajax({
-                    url: "/api/settings.php", // change this
+                    url: "/api/dash_info.php", // change this
                     method: "POST",
                     contentType: "application/json",
                     data: JSON.stringify(payload),
@@ -1026,6 +1051,33 @@
                         showMsg("An error occurred while saving settings.", "error");
                     }
                 });
+            });
+
+            $('#motorStartBtn').on('click', function () {
+                $(this).prop('disabled', true);
+                setTimeout(() => {
+                    $('#motorStartBtn').prop('disabled', false);
+                }, 10000);
+                $.ajax({
+                    url: "/api/dash_info.php",
+                    method: "POST",
+                    contentType: "application/json",
+                    data: JSON.stringify({ deviceId: localStorage.getItem("deviceId"), motorToggle: true }),
+                    success: function (res) {
+                        if (res.success) {
+                            showMsg(res.message);
+                            refreshPage();
+                        } else {
+                            showMsg(res.message, "error");
+                        }
+                    },
+                    error: function (err) {
+                        console.error("Error:", err);
+                        showMsg("An error occurred while toggling motor.", "error");
+                    }
+
+                });
+
             });
 
             function refreshPage() {
@@ -1051,10 +1103,10 @@
                                 $("#updateTimer").text(`last sync ${counter}s ago`)
                                 counter++;
                             }, 1000);
-                            if (!data.motorStatus) {
-                                $("#motorState").removeClass("good").addClass("danger").text("OFF");
+                            if (!data.motor) {
+                                $("#motorState").removeClass("good").addClass("danger").text("OFF").data("state", "off");
                             } else {
-                                $("#motorState").removeClass("danger").addClass("good").text("ON");
+                                $("#motorState").removeClass("danger").addClass("good").text("ON").data("state", "on");
                             }
                         } else {
                             $(".status-dot").removeClass("good").addClass("danger");
@@ -1096,6 +1148,14 @@
                 }
             });
 
+            $('.password-show').on('click', function () {
+                const input = $('#wifiPassword');
+                const type = input.attr('type') === 'password' ? 'text' : 'password';
+                input.attr('type', type);
+
+                $(this).toggleClass('fa-eye fa-eye-slash');
+            });
+
             $("#addDeviceBtn").on("click", function () {
                 const deviceId = $("#deviceId").val().trim();
                 if (!deviceId || deviceId.length !== 12) {
@@ -1110,9 +1170,9 @@
                     success: function (res) {
                         if (res.success) {
                             localStorage.setItem("deviceId", deviceId);
-                            showMsg("Device added successfully!");
+                            showMsg(res.message);
                         } else {
-                            showMsg(res.message || "Failed to add device.", "error");
+                            showMsg(res.message, "error");
                         }
                     },
                     error: function (err) {
@@ -1124,8 +1184,8 @@
         });
 
         function showMsg(message, type = 'success') {
-            let toast = $(`<div class="toast ${type}">${message}</div>`);
-            $("#toastBox").append(toast).css('display', 'flex');
+            let toast = $("#toastBox");
+            toast.append(`<div class="toast ${type}">${message}</div>`).css('display', 'flex');
             setTimeout(() => {
                 toast.fadeOut(300, function () {
                     $(this).remove();

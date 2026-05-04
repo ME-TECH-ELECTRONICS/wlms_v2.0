@@ -1,19 +1,37 @@
 <?php
+require_once __DIR__ . '/../api/config.php';
+require_once __DIR__ . '/../api/utility.php';
+require_once __DIR__ . '/../api/auth_middleware.php';
 
-if($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $device_id = $_POST['deviceId'];
+header('Content-Type: application/json');
 
-    // Validate input and check the length is 12
-    if(empty($device_id) || strlen($device_id) != 12) {
-        echo json_encode(['status' => 'error', 'message' => 'Device ID is required and must be 12 characters long.']);
-        exit;
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $input = json_decode(file_get_contents("php://input"), true);
+
+    if (!$input) {
+        simpleResponse(['success' => false, 'message' => 'Invalid JSON'], 400);
     }
 
+    $deviceId = strtolower(trim($input['deviceId'] ?? ''));
+    if (!preg_match('/^[a-f0-9]{12}$/', $deviceId)) {
+        simpleResponse(['success' => false, 'message' => 'Invalid device ID'], 400);
+    }
+    $auth = authenticate();
+    if (!$auth['success']) {
+        http_response_code($auth['code']);
+        echo json_encode($auth);
+        exit;
+    }
+    $user_id = (int)$auth['user']['id'];
+    $stmt = $conn->prepare("INSERT INTO user_devices (user_id, device_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE device_id = VALUES(device_id)");
+    $stmt->bind_param("ss", $user_id, $deviceId);
 
-    // Add device to the database (this is a placeholder, replace with actual database code)
-    // Example: $db->query("INSERT INTO devices (name, type, location) VALUES ('$device_name', '$device_type', '$device_location')");
-
-    echo json_encode(['status' => 'success', 'message' => 'Device added successfully.']);
+    if ($stmt->execute()) {
+        simpleResponse(['success' => true, 'message' => 'Device added successfully']);
+    } else {
+        simpleResponse(['success' => false, 'message' => 'Failed to add device'], 500);
+    }
+    
 } else {
-    echo json_encode(['status' => 'error', 'message' => 'Invalid request method.']);
+    simpleResponse(['success' => false, 'message' => 'Invalid request method.'], 405);
 }

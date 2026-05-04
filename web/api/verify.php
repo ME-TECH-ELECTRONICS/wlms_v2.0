@@ -1,6 +1,5 @@
 <?php
-include_once 'config.php';
-include_once 'db.php';
+require_once __DIR__ . '/../api/config.php';
 
 header('Content-Type: application/json');
 

@@ -2,7 +2,6 @@
 require __DIR__ . '/../vendor/autoload.php';
 
 include_once 'config.php';
-include_once 'db.php';
 include_once 'utility.php';
 
 use Firebase\JWT\JWT;
