@@ -579,6 +579,12 @@
             border-color: var(--line);
         }
 
+        .danger {
+            background: rgba(255, 107, 107, 0.14);
+            border-color: rgba(255, 107, 107, 0.2);
+            color: var(--danger);
+        }
+
         .hidden {
             display: none !important;
         }
@@ -892,6 +898,7 @@
                     <div>
                         <h3>Devices</h3>
                     </div>
+                    <span class="badge neutral" style="cursor: pointer;" id="deviceRefresh"><i class="fa-solid fa-arrows-rotate"></i> Refresh</span>
                 </div>
                 <div class="detail-item ">
                     <div class="field">
@@ -899,6 +906,11 @@
                         <input class="input" id="deviceId" type="text" name />
                     </div>
                     <button class="device-btn" id="addDeviceBtn">Add</button>
+                </div>
+                <br>
+                <div class="detail-item" id="deviceList">
+                    <h3>Device 1</h3>
+                    <button class="device-btn danger" id="removeDevice">Remove</button>
                 </div>
             </section>
 
@@ -977,7 +989,8 @@
                     <div class="field">
                         <label for="wifiPassword">WiFi AP Password</label>
                         <div class="input-wrap">
-                            <input id="wifiPassword" type="password" value="wlms@2026" style="position: relative;" />
+                            <input class="input" id="wifiPassword" type="password" value="wlms@2026"
+                                style="width: 100%;" />
                             <i class="fa-solid fa-eye password-show"></i>
                         </div>
                         <small>WiFi access point password</small>
@@ -995,7 +1008,7 @@
     <script>
         $(() => {
             let lastSyncTimer = null;
-            let counter = 0;
+            let last_seen = 0;
             let inititalPageLoad = true;
             const inputs = [
                 { "id": "startThreshold", "min": 1, "max": 100, "regex": /[^0-9]/g },
@@ -1068,6 +1081,7 @@
                             showMsg(res.message);
                             refreshPage();
                         } else {
+                            console.error("Error:", res.message);
                             showMsg(res.message, "error");
                         }
                     },
@@ -1089,20 +1103,23 @@
                         if (res.success) {
                             let data = res.data;
                             clearInterval(lastSyncTimer);
-                            counter = 0;
-
-                            $(".status-dot").removeClass("danger").addClass("good");
-                            $("#sysStatus").text("System Online");
-
-
+                            last_seen = data.last_updated;
+                            lastSyncTimer = setInterval(() => {
+                                let seconds = Math.floor((Date.now() - new Date(last_seen.replace(" ", "T"))) / 1000);
+                                $("#updateTimer").text(`last sync ${timeAgo(last_seen)}`);
+                                if (seconds > 20) {
+                                    $(".status-dot").removeClass("good").addClass("danger");
+                                    $("#sysStatus").text("System Offline");
+                                } else {
+                                    $(".status-dot").removeClass("danger").addClass("good");
+                                    $("#sysStatus").text("System Online");
+                                }
+                            }, 1000);
+                            
                             setGauge('waterArc', 'waterText', data.level, data.level, '%');
                             setGauge('voltageArc', 'voltageText', toPercent(data.voltage), data.voltage, 'V');
-                            setGauge('volumeArc', 'volumeText', toPercent(data.voltage), data.voltage, 'V');
-
-                            lastSyncTimer = setInterval(() => {
-                                $("#updateTimer").text(`last sync ${counter}s ago`)
-                                counter++;
-                            }, 1000);
+                            setGauge('volumeArc', 'volumeText', toPercent(data.level * 10, 0, 1000), data.level * 10, 'L');
+                            $("#updateTimer").text(`last sync ${timeAgo(data.last_updated)}`);
                             if (!data.motor) {
                                 $("#motorState").removeClass("good").addClass("danger").text("OFF").data("state", "off");
                             } else {
@@ -1120,12 +1137,42 @@
                 });
             }
 
-            function toPercent(value, min = 220, max = 255) {
+            function toPercent(value, min = 200, max = 270) {
                 let percent = ((value - min) / (max - min)) * 100;
                 percent = Math.max(0, Math.min(100, percent));
                 return percent;
             }
             setInterval(refreshPage, 5000);
+
+            function timeAgo(datetime) {
+                const past = new Date(datetime.replace(" ", "T"));
+                const now = new Date();
+
+                const diffMs = now - past;
+                const diffSec = Math.floor(diffMs / 1000);
+                const diffMin = Math.floor(diffSec / 60);
+                const diffHour = Math.floor(diffMin / 60);
+                const diffDay = Math.floor(diffHour / 24);
+                const diffMonth = Math.floor(diffDay / 30);
+                const diffYear = Math.floor(diffDay / 365);
+
+                if (diffYear > 0) {
+                    return diffYear + " year" + (diffYear > 1 ? "s" : "") + " ago";
+                }
+                if (diffMonth > 0) {
+                    return diffMonth + " month" + (diffMonth > 1 ? "s" : "") + " ago";
+                }
+                if (diffDay > 0) {
+                    return diffDay + " day" + (diffDay > 1 ? "s" : "") + " ago";
+                }
+                if (diffHour > 0) {
+                    return diffHour + " hour" + (diffHour > 1 ? "s" : "") + " ago";
+                }
+                if (diffMin > 0) {
+                    return diffMin + " min ago";
+                }
+                return diffSec + " sec ago";
+            }
 
             $(".nav button").on("click", function () {
                 let page = $(this).data("page");
