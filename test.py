@@ -71,10 +71,10 @@ while True:
             except:
                 print("⚠️ JSON parse error:", response.text)
         else:
-            res = response.json()
-            print("❌ HTTP Error:", response.status_code, "- Response:", res.get("m", "No message"))
+            print("❌ HTTP Error:", response.status_code, "- Response:", response.text)
 
     except Exception as e:
-        print("🚫 Request failed:", str(e))
+        print("⚠️ Request error:", e)
+        continue
 
     time.sleep(10)
