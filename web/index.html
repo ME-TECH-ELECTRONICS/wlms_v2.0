@@ -100,7 +100,7 @@
             color: var(--text);
             margin-left: -8px;
             position: absolute;
-            top: 20px;
+            top: 30px;
             right: 20px;
         }
 
@@ -643,8 +643,8 @@
 
         #toastBox {
             position: fixed;
-            top: 20px;
-            right: 20px;
+            top: 10px;
+            right: 40px;
             display: none;
             flex-direction: column;
             gap: 10px;
@@ -898,7 +898,8 @@
                     <div>
                         <h3>Devices</h3>
                     </div>
-                    <span class="badge neutral" style="cursor: pointer;" id="deviceRefresh"><i class="fa-solid fa-arrows-rotate"></i> Refresh</span>
+                    <span class="badge neutral" style="cursor: pointer;" id="deviceRefresh"><i
+                            class="fa-solid fa-arrows-rotate"></i> Refresh</span>
                 </div>
                 <div class="detail-item ">
                     <div class="field">
@@ -1002,12 +1003,12 @@
         </main>
     </div>
     <script src="./jquery-3.7.1.min.js"></script>
-    <script>
+    <script src="./js/script.js" defer></script>
+    <!--<script>
         $(() => {
             const deviceId = localStorage.getItem("deviceId");
             let lastSyncTimer = null;
             let last_seen = 0;
-            let inititalPageLoad = true;
 
             const inputs = [
                 { "id": "startThreshold", "min": 1, "max": 100, "regex": /[^0-9]/g },
@@ -1114,7 +1115,7 @@
                                     $("#sysStatus").text("System Online");
                                 }
                             }, 1000);
-                            
+
                             setGauge('waterArc', 'waterText', data.level, data.level, '%');
                             setGauge('voltageArc', 'voltageText', toPercent(data.voltage), data.voltage, 'V');
                             setGauge('volumeArc', 'volumeText', toPercent(data.level * 10, 0, 1000), data.level * 10, 'L');
@@ -1227,25 +1228,55 @@
                     }
                 });
             });
-            
+
+            function loadDevice() {
+                $.ajax({
+                    url: `/api/get_devices.php`,
+                    method: "GET",
+                    success: function (res) {
+                        if (res.success) {
+                            const device = res.data;
+                            if (device) {
+                                const formattedDeviceId = device.id.toUpperCase().replace(/(.{2})/g, '$1-').slice(0, -1);
+                                $('#deviceList').empty().append(`
+                                    <h3>DEVICE 1 (${formattedDeviceId})</h3>
+                                    <button class="device-btn danger remove-device" data-id="${device.id}">Remove</button>
+                                `);
+                            } else {
+                                $('#deviceList').html('<p style="color:#95a8c7;">No devices Found. Please refresh the list or add a new device.</p>');
+                            }
+                        } else {
+                            $('#deviceList').html('<p style="color:#95a8c7;">No devices Found. Please refresh the list or add a new device.</p>');
+                        }
+                    },
+                    error: function (err) {
+                        console.error("Error:", err);
+                        $('#deviceList').html('<p style="color:#95a8c7;">Failed to load devices. Please try again later.</p>');
+                    }
+                });
+            }
+
             if (deviceId) {
                 const formattedDeviceId = deviceId.toUpperCase().replace(/(.{2})/g, '$1-').slice(0, -1);
                 $('#deviceList').empty().append(`
                     <h3>DEVICE 1 (${formattedDeviceId})</h3>
                     <button class="device-btn danger remove-device" data-id="device1">Remove</button>
                 `);
+            } else {
+                $('#deviceList').html('<p style="color:#95a8c7;">No devices Found. Please refresh the list or add a new device.</p>');
             }
         });
 
         function showMsg(message, type = 'success') {
             let toast = $("#toastBox");
-            toast.append(`<div class="toast ${type}">${message}</div>`).css('display', 'flex');
+            toast.empty().append(`<div class="toast ${type}">${message}</div>`).css('display', 'flex');
             setTimeout(() => {
                 toast.fadeOut(300, function () {
-                    $(this).remove();
+                    $(this).hide();
                 });
             }, 3000);
         }
+
 
         const appShell = document.getElementById('appShell');
         const loginOverlay = document.getElementById('loginOverlay');
@@ -1283,12 +1314,7 @@
             $text.text(text + suffix);
         }
 
-        function updateClock() {
-            const now = new Date();
-            $('#clockPill').text(
-                now.toLocaleTimeString([], { hour12: false })
-            );
-        }
+        
 
         function renderLogs() {
             const body = document.getElementById('logBody');
@@ -1329,31 +1355,9 @@
             renderLogs();
         });
 
-        function checkSession() {
-            const session = localStorage.getItem('wl_session');
-            if (!session) return;
-
-            try {
-                const data = JSON.parse(session);
-                if (Date.now() < data.expiry) {
-                    loginOverlay.classList.add('hidden');
-                    appShell.classList.remove('hidden');
-                    initDashboard();
-                } else {
-                    localStorage.removeItem('wl_session');
-                }
-            } catch {
-                localStorage.removeItem('wl_session');
-            }
-        }
-
-        checkSession();
-
         setInterval(updateClock, 1000);
         updateClock();
-        // setGauge('waterArc', 'waterText', waterValue, '%');
-        // setGauge('voltageArc', 'voltageText', 2, 'V');
-    </script>
+    </script>-->
 </body>
 
 </html>
