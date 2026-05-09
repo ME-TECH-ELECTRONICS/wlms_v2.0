@@ -908,10 +908,7 @@
                     <button class="device-btn" id="addDeviceBtn">Add</button>
                 </div>
                 <br>
-                <div class="detail-item" id="deviceList">
-                    <h3>Device 1</h3>
-                    <button class="device-btn danger" id="removeDevice">Remove</button>
-                </div>
+                <div class="detail-item" id="deviceList"></div>
             </section>
 
             <section id="page-logs" class="card panel hidden page" style="margin-top:18px;">
@@ -1007,9 +1004,11 @@
     <script src="./jquery-3.7.1.min.js"></script>
     <script>
         $(() => {
+            const deviceId = localStorage.getItem("deviceId");
             let lastSyncTimer = null;
             let last_seen = 0;
             let inititalPageLoad = true;
+
             const inputs = [
                 { "id": "startThreshold", "min": 1, "max": 100, "regex": /[^0-9]/g },
                 { "id": "stopThreshold", "min": 1, "max": 100, "regex": /[^0-9]/g },
@@ -1228,6 +1227,14 @@
                     }
                 });
             });
+            
+            if (deviceId) {
+                const formattedDeviceId = deviceId.toUpperCase().replace(/(.{2})/g, '$1-').slice(0, -1);
+                $('#deviceList').empty().append(`
+                    <h3>DEVICE 1 (${formattedDeviceId})</h3>
+                    <button class="device-btn danger remove-device" data-id="device1">Remove</button>
+                `);
+            }
         });
 
         function showMsg(message, type = 'success') {
