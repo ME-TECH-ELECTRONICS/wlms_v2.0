@@ -1,4 +1,4 @@
-$(document).ready(function () {
+$(document).ready(async function () {
 
     const deviceId = localStorage.getItem("deviceId");
 
@@ -24,6 +24,8 @@ $(document).ready(function () {
         { id: "dryRunTimeout", min: 1, max: 30, regex: /[^0-9]/g, type: "number" },
         { id: "dryRunCancel", min: 1, max: 20, regex: /[^0-9]/g, type: "number" },
         { id: "motorTimeout", min: 1, max: 20, regex: /[^0-9]/g, type: "number" },
+        { id: "motorStartHour", min: 0, max: 23, regex: /[^0-9]/g, type: "number" },
+        { id: "motorStopHour", min: 1, max: 23, regex: /[^0-9]/g, type: "number" },
         { id: "deviceId", min: 12, max: 12, regex: /[^a-fA-F0-9]/g, type: "text" },
         { id: "wifiSsid", min: 1, max: 32, regex: /[^ -~]/g, type: "text" },
         { id: "wifiPassword", min: 1, max: 32, regex: /[^ -~]/g, type: "text" }
@@ -147,7 +149,7 @@ $(document).ready(function () {
     // =========================
 
     async function refreshPage() {
-        if (refreshBusy || document.hidden) return;
+        if (refreshBusy || document.hidden || !localStorage.getItem("deviceId")) return;
         refreshBusy = true;
         $.ajax({
             url: `/api/dash_info.php?id=${localStorage.getItem("deviceId")}`,
@@ -469,7 +471,42 @@ $(document).ready(function () {
             now.toLocaleTimeString([], { hour12: false })
         );
     }
+
+    function hasAccessToken() {
+        return document.cookie.split("; ").some(cookie => cookie.startsWith("auth_token="));
+    }
+
+    async function refreshAccessToken() {
+        try {
+            const response = await $.ajax({
+                url: "/api/refresh.php",
+                type: "POST",
+                xhrFields: {
+                    withCredentials: true
+                }
+            });
+            document.cookie = `auth_token=${response.access_token}; path=/`;
+
+            return true;
+
+        }
+        catch (err) {
+
+            window.location.href = "/auth";
+
+            return false;
+
+        }
+
+    }
+
+    // CHECK AUTH
+    // if (!hasAccessToken()) await refreshAccessToken();
     // loadDevice();
+    //if auth_token not existing in cookie then redirect to login page
+    // if (!document.cookie.split(';').some((item) => item.trim().startsWith('auth_token='))) {
+    //     window.location.href = '/auth';
+    // }
     updateClock();
     setInterval(updateClock, 1000);
     setInterval(refreshPage, 5000);

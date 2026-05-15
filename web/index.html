@@ -980,6 +980,16 @@
                         <small>Auto-stop after this duration to reduce damage risk.</small>
                     </div>
                     <div class="field">
+                        <label for="motorStartHour">Motor start hour (24-hour format)</label>
+                        <input id="motorStartHour" type="number" min="0" max="23" value="6" />
+                        <small>Motor will only run between start and stop hours.</small>
+                    </div>
+                    <div class="field">
+                        <label for="motorStopHour">Motor stop hour (24-hour format)</label>
+                        <input id="motorStopHour" type="number" min="1" max="23" value="10" />
+                        <small>Motor will only run between start and stop hours.</small>
+                    </div>
+                    <div class="field">
                         <label for="wifiSsid">WiFi AP SSID</label>
                         <input id="wifiSsid" type="text" value="wlms" />
                         <small>WiFi access point SSID to connect to</small>
