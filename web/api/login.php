@@ -220,6 +220,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $fetchUser->close();
             $updateUser->close();
+            $deviceInfo->close();
         } else {
             $failedAttempts = ((int)$user['failed_attempts']) + 1;
             $lockUntil = null;

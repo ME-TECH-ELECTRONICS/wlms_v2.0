@@ -36,17 +36,26 @@ $(document).ready(async function () {
     // =========================
 
     for (const input of inputs) {
-        $(`#${input.id}`).on("input", function () {
-            let value = $(this).val().replace(input.regex, "");
+        const $field = $(`#${input.id}`);
+        $field.on("input", function () {
+            let value = $(this).val();
+            value = value.replace(input.regex, "");
             if (input.type === "number") {
-                if (value !== "") {
-                    value = parseInt(value, 10);
-                    value = Math.max(
-                        input.min,
-                        Math.min(input.max, value)
-                    );
+                if (value === "") {
+                    $(this).val("");
+                    return;
                 }
-            } else {
+                value = Number(value);
+                if (!Number.isFinite(value)) {
+                    value = input.min;
+                }
+                value = Math.max(
+                    input.min,
+                    Math.min(input.max, value)
+                );
+                value = Math.floor(value);
+            }
+            else {
                 value = value.substring(0, input.max);
             }
             $(this).val(value);
@@ -167,7 +176,14 @@ $(document).ready(async function () {
                 updateGauges(data);
                 updateMotorState(data.motor);
             },
-            error: function () {
+            error: async function (xhr) {
+                // if (xhr.status === 401) {
+                //     const refreshed = await refreshAccessToken();
+                //     if (refreshed) {
+                //         refreshPage();
+                //         return;
+                //     }
+                // }
                 $statusDot.removeClass("good").addClass("danger");
                 $sysStatus.text("Connection Error");
             },
@@ -441,17 +457,6 @@ $(document).ready(async function () {
     // INITIAL LOAD
     // =========================
 
-    if (deviceId) {
-        renderDevice(deviceId);
-        refreshPage();
-    } else {
-        $deviceList.html(`
-            <p style="color:#95a8c7;">
-                No devices Found.
-                Please refresh the list or add a new device.
-            </p>
-        `);
-    }
     function setGauge(arcId, textId, percent, text, suffix = '%') {
         const $circle = $('#' + arcId);
         const $text = $('#' + textId);
@@ -472,41 +477,58 @@ $(document).ready(async function () {
         );
     }
 
-    function hasAccessToken() {
-        return document.cookie.split("; ").some(cookie => cookie.startsWith("auth_token="));
-    }
 
     async function refreshAccessToken() {
         try {
-            const response = await $.ajax({
+            await $.ajax({
                 url: "/api/refresh.php",
                 type: "POST",
-                xhrFields: {
-                    withCredentials: true
-                }
             });
-            document.cookie = `auth_token=${response.access_token}; path=/`;
-
             return true;
-
         }
         catch (err) {
-
             window.location.href = "/auth";
-
             return false;
-
         }
-
     }
 
-    // CHECK AUTH
-    // if (!hasAccessToken()) await refreshAccessToken();
-    // loadDevice();
-    //if auth_token not existing in cookie then redirect to login page
-    // if (!document.cookie.split(';').some((item) => item.trim().startsWith('auth_token='))) {
-    //     window.location.href = '/auth';
-    // }
+    async function checkAuth() {
+        try {
+            const response = await $.ajax({
+                url: "/api/me.php",
+                type: "GET",
+            });
+        }
+        catch (err) {
+            const refreshed = await refreshAccessToken();
+            if (!refreshed) {
+                window.location.href = "/auth";
+            }
+            else {
+                location.reload();
+            }
+        }
+    }
+
+    await checkAuth();
+    if (deviceId) {
+        renderDevice(deviceId);
+        refreshPage();
+    } else {
+        try {
+            const response = await $.ajax({
+                url: "/api/get_device.php",
+                type: "GET"
+            });
+            if (response.success && response.device) {
+                localStorage.setItem("deviceId", response.device);
+            } else {
+                $deviceList.html(`<p style="color:#95a8c7;">No devices Found.Please refresh the list or add a new device.</p>`);
+            }
+        } catch (err) {
+            $deviceList.html(`<p style="color:#95a8c7;">No devices Found.Please refresh the list or add a new device.</p>`);
+        }
+    }
     updateClock();
     setInterval(updateClock, 1000);
     setInterval(refreshPage, 5000);
