@@ -76,7 +76,7 @@ $(document).ready(async function () {
             }
             payload[input.id] = value;
         }
-        payload.deviceId = localStorage.getItem("deviceId");
+        payload.deviceId = deviceId;
         $.ajax({
             url: "/api/dash_info.php",
             method: "POST",
@@ -115,7 +115,7 @@ $(document).ready(async function () {
             timeout: 5000,
             contentType: "application/json",
             data: JSON.stringify({
-                deviceId: localStorage.getItem("deviceId"),
+                deviceId: deviceId,
                 motorToggle: true
             }),
             success: function (res) {
@@ -145,11 +145,11 @@ $(document).ready(async function () {
         const seconds = Math.floor((Date.now() - last_seen.getTime()) / 1000);
         if (seconds > 20) {
             $statusDot.removeClass("good").addClass("danger");
-            $sysStatus.text("System Offline");
+            $sysStatus.text("Device Offline");
 
         } else {
             $statusDot.removeClass("danger").addClass("good");
-            $sysStatus.text("System Online");
+            $sysStatus.text("Device Online");
         }
     }, 1000);
 
@@ -158,18 +158,18 @@ $(document).ready(async function () {
     // =========================
 
     async function refreshPage() {
-        if (refreshBusy || document.hidden || !localStorage.getItem("deviceId")) return;
+        if (refreshBusy || document.hidden || deviceId) return;
         refreshBusy = true;
         $.ajax({
-            url: `/api/dash_info.php?id=${localStorage.getItem("deviceId")}`,
+            url: `/api/dash_info.php?id=${deviceId}`,
             method: "GET",
             timeout: 5000,
             success: function (res) {
-                if (!res.success) {
+                const data = res.data;
+                if (!res || !res.success || !res.data) {
                     setOfflineState();
                     return;
                 }
-                const data = res.data;
                 last_seen = new Date(
                     data.last_updated.replace(" ", "T")
                 );
@@ -177,13 +177,12 @@ $(document).ready(async function () {
                 updateMotorState(data.motor);
             },
             error: async function (xhr) {
-                // if (xhr.status === 401) {
-                //     const refreshed = await refreshAccessToken();
-                //     if (refreshed) {
-                //         refreshPage();
-                //         return;
-                //     }
-                // }
+                if (xhr.status === 401) {
+                    const refreshed = await refreshAccessToken();
+                    if (refreshed) {
+                        return await refreshPage();
+                    }
+                }
                 $statusDot.removeClass("good").addClass("danger");
                 $sysStatus.text("Connection Error");
             },
@@ -229,7 +228,7 @@ $(document).ready(async function () {
 
     function setOfflineState() {
         $statusDot.removeClass("good").addClass("danger");
-        $sysStatus.text("System Offline");
+        $sysStatus.text("Device Offline");
     }
 
     // =========================
@@ -327,8 +326,8 @@ $(document).ready(async function () {
     // =========================
 
     $("#addDeviceBtn").on("click", function () {
-        const deviceId = $("#deviceId").val().trim();
-        if (!deviceId || deviceId.length !== 12) {
+        const newDeviceId = $("#deviceId").val().trim();
+        if (!newDeviceId || newDeviceId.length !== 12) {
             showMsg("Please enter a valid device ID.", "error");
             return;
         }
@@ -341,7 +340,8 @@ $(document).ready(async function () {
             data: JSON.stringify({ deviceId }),
             success: function (res) {
                 if (res.success) {
-                    localStorage.setItem("deviceId", deviceId);
+                    localStorage.setItem("deviceId", newDeviceId);
+                    deviceId = newDeviceId;
                     renderDevice(deviceId);
                     showMsg(res.message);
                 } else {
@@ -391,23 +391,13 @@ $(document).ready(async function () {
                 if (res.success && res.data) {
                     renderDevice(res.data.id);
                 } else {
-                    $deviceList.html(`
-                        <p style="color:#95a8c7;">
-                            No devices Found.
-                            Please refresh the list or add a new device.
-                        </p>
-                    `);
+                    $deviceList.html(`<p style="color:#95a8c7;">No devices Found.Please refresh the list or add a new device.</p>`);
                 }
             },
 
             error: function (err) {
                 console.error(err);
-                $deviceList.html(`
-                    <p style="color:#95a8c7;">
-                        Failed to load devices.
-                        Please try again later.
-                    </p>
-                `);
+                $deviceList.html(`<p style="color:#95a8c7;">No devices Found.Please refresh the list or add a new device.</p>`);
             }
         });
     }
@@ -433,11 +423,7 @@ $(document).ready(async function () {
     // =========================
 
     function showMsg(message, type = "success") {
-        const toast = $(`
-            <div class="toast ${type}">
-                ${message}
-            </div>
-        `);
+        const toast = $("<div>").addClass(`toast ${type}`).text(message);
         $toastBox
             .append(toast)
             .css("display", "flex");
@@ -515,6 +501,7 @@ $(document).ready(async function () {
         renderDevice(deviceId);
         refreshPage();
     } else {
+        await loadDevice();
         try {
             const response = await $.ajax({
                 url: "/api/get_device.php",
@@ -522,6 +509,7 @@ $(document).ready(async function () {
             });
             if (response.success && response.device) {
                 localStorage.setItem("deviceId", response.device);
+
             } else {
                 $deviceList.html(`<p style="color:#95a8c7;">No devices Found.Please refresh the list or add a new device.</p>`);
             }
