@@ -1,7 +1,6 @@
 $(document).ready(async function () {
 
-    const deviceId = localStorage.getItem("deviceId");
-
+    let deviceId = localStorage.getItem("deviceId");
     let last_seen = null;
     let refreshBusy = false;
 
@@ -30,6 +29,8 @@ $(document).ready(async function () {
         { id: "wifiSsid", min: 1, max: 32, regex: /[^ -~]/g, type: "text" },
         { id: "wifiPassword", min: 1, max: 32, regex: /[^ -~]/g, type: "text" }
     ];
+
+    const NO_DEVICE_HTML = `<p style="color:#95a8c7;">No devices Found.Please refresh the list or add a new device.</p>`;
 
     // =========================
     // INPUT VALIDATION
@@ -158,18 +159,18 @@ $(document).ready(async function () {
     // =========================
 
     async function refreshPage() {
-        if (refreshBusy || document.hidden || deviceId) return;
+        if (refreshBusy || document.hidden || !deviceId) return;
         refreshBusy = true;
         $.ajax({
             url: `/api/dash_info.php?id=${deviceId}`,
             method: "GET",
             timeout: 5000,
             success: function (res) {
-                const data = res.data;
                 if (!res || !res.success || !res.data) {
                     setOfflineState();
                     return;
                 }
+                const data = res.data;
                 last_seen = new Date(
                     data.last_updated.replace(" ", "T")
                 );
@@ -337,7 +338,7 @@ $(document).ready(async function () {
             method: "POST",
             timeout: 5000,
             contentType: "application/json",
-            data: JSON.stringify({ deviceId }),
+            data: JSON.stringify({ newDeviceId }),
             success: function (res) {
                 if (res.success) {
                     localStorage.setItem("deviceId", newDeviceId);
@@ -391,13 +392,13 @@ $(document).ready(async function () {
                 if (res.success && res.data) {
                     renderDevice(res.data.id);
                 } else {
-                    $deviceList.html(`<p style="color:#95a8c7;">No devices Found.Please refresh the list or add a new device.</p>`);
+                    $deviceList.html(NO_DEVICE_HTML);
                 }
             },
 
             error: function (err) {
                 console.error(err);
-                $deviceList.html(`<p style="color:#95a8c7;">No devices Found.Please refresh the list or add a new device.</p>`);
+                $deviceList.html(NO_DEVICE_HTML);
             }
         });
     }
@@ -408,12 +409,7 @@ $(document).ready(async function () {
 
     $(document).on("click", ".remove-device", function () {
         localStorage.removeItem("deviceId");
-        $deviceList.html(`
-            <p style="color:#95a8c7;">
-                No devices Found.
-                Please refresh the list or add a new device.
-            </p>
-        `);
+        $deviceList.html(NO_DEVICE_HTML);
 
         showMsg("Device removed.");
     });
@@ -457,6 +453,7 @@ $(document).ready(async function () {
     }
 
     function updateClock() {
+        if (document.hidden) return;
         const now = new Date();
         $clockPill.text(
             now.toLocaleTimeString([], { hour12: false })
@@ -499,25 +496,11 @@ $(document).ready(async function () {
     await checkAuth();
     if (deviceId) {
         renderDevice(deviceId);
-        refreshPage();
+        await refreshPage();
     } else {
         await loadDevice();
-        try {
-            const response = await $.ajax({
-                url: "/api/get_device.php",
-                type: "GET"
-            });
-            if (response.success && response.device) {
-                localStorage.setItem("deviceId", response.device);
-
-            } else {
-                $deviceList.html(`<p style="color:#95a8c7;">No devices Found.Please refresh the list or add a new device.</p>`);
-            }
-        } catch (err) {
-            $deviceList.html(`<p style="color:#95a8c7;">No devices Found.Please refresh the list or add a new device.</p>`);
-        }
     }
     updateClock();
     setInterval(updateClock, 1000);
-    setInterval(refreshPage, 5000);
+    setInterval(await refreshPage, 5000);
 });
