@@ -1,10 +1,20 @@
 $(document).ready(async function () {
 
-    let deviceId = localStorage.getItem("deviceId");
-    let last_seen = null;
-    let refreshBusy = false;
+    // =========================================================
+    // STATE
+    // =========================================================
 
-    // Cached DOM elements
+    let deviceId = localStorage.getItem("deviceId");
+    let lastSeen = null;
+    let refreshBusy = false;
+    let refreshPromise = null;
+
+    const GAUGE_CIRCUMFERENCE = 2 * Math.PI * 78;
+
+    // =========================================================
+    // DOM CACHE
+    // =========================================================
+
     const $motorState = $("#motorState");
     const $statusDot = $(".status-dot");
     const $sysStatus = $("#sysStatus");
@@ -13,9 +23,15 @@ $(document).ready(async function () {
     const $toastBox = $("#toastBox");
     const $clockPill = $("#clockPill");
 
-    // =========================
-    // INPUT CONFIG
-    // =========================
+    // =========================================================
+    // CONSTANTS
+    // =========================================================
+
+    const NO_DEVICE_HTML = `
+        <p style="color:#95a8c7;">
+            No devices Found. Please refresh the list or add a new device.
+        </p>
+    `;
 
     const inputs = [
         { id: "startThreshold", min: 1, max: 100, regex: /[^0-9]/g, type: "number" },
@@ -30,44 +46,169 @@ $(document).ready(async function () {
         { id: "wifiPassword", min: 1, max: 32, regex: /[^ -~]/g, type: "text" }
     ];
 
-    const NO_DEVICE_HTML = `<p style="color:#95a8c7;">No devices Found.Please refresh the list or add a new device.</p>`;
+    // =========================================================
+    // INITIALIZATION
+    // =========================================================
 
-    // =========================
-    // INPUT VALIDATION
-    // =========================
+    init();
 
-    for (const input of inputs) {
-        const $field = $(`#${input.id}`);
-        $field.on("input", function () {
-            let value = $(this).val();
-            value = value.replace(input.regex, "");
-            if (input.type === "number") {
-                if (value === "") {
-                    $(this).val("");
-                    return;
-                }
-                value = Number(value);
-                if (!Number.isFinite(value)) {
-                    value = input.min;
-                }
-                value = Math.max(
-                    input.min,
-                    Math.min(input.max, value)
-                );
-                value = Math.floor(value);
-            }
-            else {
-                value = value.substring(0, input.max);
-            }
-            $(this).val(value);
-        });
+    async function init() {
+
+        bindInputValidation();
+        bindEvents();
+
+        await checkAuth();
+
+        if (deviceId) {
+            renderDevice(deviceId);
+            await refreshPage();
+        } else {
+            await loadDevice();
+        }
+
+        updateClock();
+
+        setInterval(updateClock, 1000);
+        setInterval(updateLastSeenTimer, 1000);
+        setInterval(refreshPage, 5000);
     }
 
-    // =========================
-    // SAVE SETTINGS
-    // =========================
+    // =========================================================
+    // EVENT BINDINGS
+    // =========================================================
 
-    $("#saveSettings").on("click", function () {
+    function bindEvents() {
+
+        $("#saveSettings").on("click", saveSettings);
+        $("#motorStartBtn").on("click", toggleMotor);
+        $("#menu").on("click", toggleMobileMenu);
+        $(".password-show").on("click", togglePasswordVisibility);
+        $("#addDeviceBtn").on("click", addDevice);
+        $(".nav button").on("click", switchPage);
+        $(document).on("click", ".remove-device", removeDevice);
+    }
+
+    // =========================================================
+    // INPUT VALIDATION
+    // =========================================================
+
+    function bindInputValidation() {
+        for (const input of inputs) {
+            $(`#${input.id}`).on("input", function () {
+                let value = $(this).val();
+                value = value.replace(input.regex, "");
+                if (input.type === "number") {
+                    if (value === "") {
+                        $(this).val("");
+                        return;
+                    }
+                    value = Number(value);
+                    if (!Number.isFinite(value)) {
+                        value = input.min;
+                    }
+                    value = Math.floor(
+                        Math.max(input.min, Math.min(input.max, value))
+                    );
+                } else {
+                    value = value.substring(0, input.max);
+                }
+                $(this).val(value);
+            });
+        }
+    }
+
+    async function apiRequest({ url, method = "GET", data = null, timeout = 5000, retry = true }) {
+        try {
+            return await $.ajax({
+                url,
+                method,
+                timeout,
+                contentType: "application/json",
+                data: data ? JSON.stringify(data) : null
+            });
+        } catch (xhr) {
+            if (xhr.status === 401 && retry) {
+                const refreshed = await refreshAccessToken();
+                if (refreshed) {
+                    return await apiRequest({
+                        url,
+                        method,
+                        data,
+                        timeout,
+                        retry: false
+                    });
+                }
+            }
+            throw xhr;
+        }
+    }
+
+    function togglePasswordVisibility() {
+        const input = $("#wifiPassword");
+        const type =
+            input.attr("type") === "password"
+                ? "text"
+                : "password";
+
+        input.attr("type", type);
+        $(this).toggleClass("fa-eye fa-eye-slash");
+    }
+
+    function switchPage() {
+        const page = $(this).data("page");
+        if (!page) return;
+        $(".page").addClass("hidden");
+        $(".nav button").removeClass("active");
+        $(this).addClass("active");
+        $(`#page-${page}`).removeClass("hidden");
+    }
+
+    function toggleMobileMenu() {
+        const $nav = $(".nav");
+        if ($nav.is(":visible")) {
+            $nav.slideUp(200);
+        } else {
+            $nav.slideDown(500, function () {
+                $(this).css("display", "flex");
+            });
+        }
+    }
+
+    function removeDevice() {
+        localStorage.removeItem("deviceId");
+        $deviceList.html(NO_DEVICE_HTML);
+        showMsg("Device removed.");
+    }
+
+    async function addDevice() {
+        const newDeviceId = $("#deviceId").val().trim();
+        if (!newDeviceId || newDeviceId.length !== 12) {
+            showMsg("Please enter a valid device ID.", "error");
+            return;
+        }
+        try {
+            const res = await apiRequest({
+                url: "/api/add_device.php",
+                method: "POST",
+                data: { newDeviceId }
+            });
+            if (res.success) {
+                localStorage.setItem("deviceId", newDeviceId);
+                deviceId = newDeviceId;
+                renderDevice(deviceId);
+                showMsg(res.message);
+            } else {
+                showMsg(res.message, "error");
+            }
+        } catch (err) {
+            console.error(err);
+            showMsg("An error occurred while adding the device.", "error");
+        }
+    }
+
+
+
+    async function saveSettings() {
         const payload = {};
         for (const input of inputs) {
             if (input.id === "deviceId") continue;
@@ -78,290 +219,177 @@ $(document).ready(async function () {
             payload[input.id] = value;
         }
         payload.deviceId = deviceId;
-        $.ajax({
-            url: "/api/dash_info.php",
-            method: "POST",
-            timeout: 5000,
-            contentType: "application/json",
-            data: JSON.stringify(payload),
-            success: function (res) {
-
-                if (res.success) {
-                    showMsg("Settings has been pushed!");
-                } else {
-                    showMsg("Failed to push settings.", "error");
-                }
-            },
-            error: function (err) {
-
-                console.error(err);
-                showMsg("An error occurred while saving settings.", "error");
+        try {
+            const res = await apiRequest({
+                url: "/api/dash_info.php",
+                method: "POST",
+                data: payload
+            });
+            if (res.success) {
+                showMsg(res.message);
+            } else {
+                showMsg(res.message, "error");
             }
-        });
-    });
+        } catch (err) {
+            console.error(err);
+            showMsg("An error occurred while saving settings.", "error");
+        }
+    }
 
-    // =========================
-    // MOTOR TOGGLE
-    // =========================
-
-    $("#motorStartBtn").on("click", function () {
-        const $btn = $(this);
+    async function toggleMotor() {
+        const $btn = $("#motorStartBtn");
         $btn.prop("disabled", true);
         setTimeout(() => {
             $btn.prop("disabled", false);
         }, 10000);
-        $.ajax({
-            url: "/api/dash_info.php",
-            method: "POST",
-            timeout: 5000,
-            contentType: "application/json",
-            data: JSON.stringify({
-                deviceId: deviceId,
-                motorToggle: true
-            }),
-            success: function (res) {
-                if (res.success) {
-                    showMsg(res.message);
-                    refreshPage();
-
-                } else {
-                    console.error(res.message);
-                    showMsg(res.message, "error");
+        try {
+            const res = await apiRequest({
+                url: "/api/dash_info.php",
+                method: "POST",
+                data: {
+                    deviceId,
+                    motorToggle: true
                 }
-            },
-            error: function (err) {
-                console.error(err);
-                showMsg("An error occurred while toggling motor.", "error");
+            });
+            if (res.success) {
+                showMsg(res.message);
+                await refreshPage();
+            } else {
+                console.error(res.message);
+                showMsg(res.message, "error");
             }
-        });
-    });
-
-    // =========================
-    // UPDATE LAST SYNC TIMER
-    // =========================
-
-    setInterval(() => {
-        if (!last_seen) return;
-        $updateTimer.text(`last sync ${timeAgo(last_seen)}`);
-        const seconds = Math.floor((Date.now() - last_seen.getTime()) / 1000);
-        if (seconds > 20) {
-            $statusDot.removeClass("good").addClass("danger");
-            $sysStatus.text("Device Offline");
-
-        } else {
-            $statusDot.removeClass("danger").addClass("good");
-            $sysStatus.text("Device Online");
+        } catch (err) {
+            console.error(err);
+            showMsg("An error occurred while toggling motor.", "error");
         }
-    }, 1000);
+    }
 
-    // =========================
-    // REFRESH PAGE
-    // =========================
+    // =========================================================
+    // API FUNCTIONS
+    // =========================================================
 
     async function refreshPage() {
-        if (refreshBusy || document.hidden || !deviceId) return;
-        refreshBusy = true;
-        $.ajax({
-            url: `/api/dash_info.php?id=${deviceId}`,
-            method: "GET",
-            timeout: 5000,
-            success: function (res) {
-                if (!res || !res.success || !res.data) {
-                    setOfflineState();
-                    return;
-                }
-                const data = res.data;
-                last_seen = new Date(
-                    data.last_updated.replace(" ", "T")
-                );
-                updateGauges(data);
-                updateMotorState(data.motor);
-            },
-            error: async function (xhr) {
-                if (xhr.status === 401) {
-                    const refreshed = await refreshAccessToken();
-                    if (refreshed) {
-                        return await refreshPage();
-                    }
-                }
-                $statusDot.removeClass("good").addClass("danger");
-                $sysStatus.text("Connection Error");
-            },
-            complete: function () {
-                refreshBusy = false;
-            }
-        });
-    }
-
-    // =========================
-    // UPDATE GAUGES
-    // =========================
-
-    function updateGauges(data) {
-        setGauge("waterArc", "waterText", data.level, data.level, "%");
-        setGauge("voltageArc", "voltageText", toPercent(data.voltage), data.voltage, "V");
-        setGauge("volumeArc", "volumeText", toPercent(data.level * 10, 0, 1000), data.level * 10, "L");
-    }
-
-    // =========================
-    // UPDATE MOTOR STATE
-    // =========================
-
-    function updateMotorState(motor) {
-        if (!motor) {
-            $motorState
-                .removeClass("good")
-                .addClass("danger")
-                .text("OFF")
-                .data("state", "off");
-        } else {
-            $motorState
-                .removeClass("danger")
-                .addClass("good")
-                .text("ON")
-                .data("state", "on");
-        }
-    }
-
-    // =========================
-    // OFFLINE STATE
-    // =========================
-
-    function setOfflineState() {
-        $statusDot.removeClass("good").addClass("danger");
-        $sysStatus.text("Device Offline");
-    }
-
-    // =========================
-    // PERCENT CONVERTER
-    // =========================
-
-    function toPercent(value, min = 200, max = 270) {
-        let percent = ((value - min) / (max - min)) * 100;
-        percent = Math.max(0, Math.min(100, percent));
-        return percent;
-    }
-
-    // =========================
-    // TIME AGO
-    // =========================
-
-    function timeAgo(dateObj) {
-        const now = new Date();
-        const diffMs = now - dateObj;
-        const diffSec = Math.floor(diffMs / 1000);
-        const diffMin = Math.floor(diffSec / 60);
-        const diffHour = Math.floor(diffMin / 60);
-        const diffDay = Math.floor(diffHour / 24);
-        const diffMonth = Math.floor(diffDay / 30);
-        const diffYear = Math.floor(diffDay / 365);
-
-        if (diffYear > 0) {
-            return `${diffYear} year${diffYear > 1 ? "s" : ""} ago`;
-        }
-
-        if (diffMonth > 0) {
-            return `${diffMonth} month${diffMonth > 1 ? "s" : ""} ago`;
-        }
-
-        if (diffDay > 0) {
-            return `${diffDay} day${diffDay > 1 ? "s" : ""} ago`;
-        }
-
-        if (diffHour > 0) {
-            return `${diffHour} hour${diffHour > 1 ? "s" : ""} ago`;
-        }
-
-        if (diffMin > 0) {
-            return `${diffMin} min ago`;
-        }
-
-        return `${diffSec} sec ago`;
-    }
-
-    // =========================
-    // NAVIGATION
-    // =========================
-
-    $(".nav button").on("click", function () {
-        const page = $(this).data("page");
-        if (!page) return;
-        $(".page").addClass("hidden");
-        $(".nav button").removeClass("active");
-        $(this).addClass("active");
-        $(`#page-${page}`).removeClass("hidden");
-    });
-
-    // =========================
-    // MOBILE MENU
-    // =========================
-
-    $("#menu").on("click", function () {
-        const $nav = $(".nav");
-        if ($nav.is(":visible")) {
-            $nav.slideUp(200);
-        } else {
-            $nav.slideDown(500, function () {
-                $(this).css("display", "flex");
-            });
-        }
-    });
-
-    // =========================
-    // PASSWORD TOGGLE
-    // =========================
-
-    $(".password-show").on("click", function () {
-        const input = $("#wifiPassword");
-        const type =
-            input.attr("type") === "password"
-                ? "text"
-                : "password";
-
-        input.attr("type", type);
-        $(this).toggleClass("fa-eye fa-eye-slash");
-    });
-
-    // =========================
-    // ADD DEVICE
-    // =========================
-
-    $("#addDeviceBtn").on("click", function () {
-        const newDeviceId = $("#deviceId").val().trim();
-        if (!newDeviceId || newDeviceId.length !== 12) {
-            showMsg("Please enter a valid device ID.", "error");
+        if (refreshBusy || document.hidden || !deviceId) {
             return;
         }
-
-        $.ajax({
-            url: "/api/add_device.php",
-            method: "POST",
-            timeout: 5000,
-            contentType: "application/json",
-            data: JSON.stringify({ newDeviceId }),
-            success: function (res) {
-                if (res.success) {
-                    localStorage.setItem("deviceId", newDeviceId);
-                    deviceId = newDeviceId;
-                    renderDevice(deviceId);
-                    showMsg(res.message);
-                } else {
-                    showMsg(res.message, "error");
-                }
-            },
-            error: function (err) {
-                console.error(err);
-                showMsg(
-                    "An error occurred while adding the device.",
-                    "error"
-                );
+        refreshBusy = true;
+        try {
+            const res = await apiRequest({
+                url: `/api/dash_info.php?id=${deviceId}`,
+                method: "GET",
+            });
+            if (!res?.success || !res?.data) {
+                setStatus(false);
+                return;
             }
-        });
-    });
+            const data = res.data;
+            lastSeen = new Date(
+                data.last_updated.replace(" ", "T")
+            );
+            updateGauges(data);
+            updateMotorState(data.motor);
+        } catch (err) {
+            console.error(err);
+            setConnectionError();
+        } finally {
+            refreshBusy = false;
+        }
+    }
 
-    // =========================
-    // RENDER DEVICE
-    // =========================
+    async function refreshAccessToken() {
+        if (refreshPromise) {
+            return refreshPromise;
+        }
+        refreshPromise = (async () => {
+            try {
+                await $.ajax({
+                    url: "/api/refresh.php",
+                    type: "POST"
+                });
+                return true;
+            } catch {
+                window.location.href = "/auth";
+                return false;
+            } finally {
+                refreshPromise = null;
+            }
+        })();
+        return refreshPromise;
+    }
+
+    async function checkAuth() {
+        try {
+            await apiRequest({url: "/api/me.php"});
+        } catch {
+            window.location.href = "/auth";
+        }
+    }
+
+    // =========================================================
+    // UI FUNCTIONS
+    // =========================================================
+
+    function setStatus(isOnline) {
+        $statusDot
+            .toggleClass("good", isOnline)
+            .toggleClass("danger", !isOnline);
+
+        $sysStatus.text(
+            isOnline
+                ? "Device Online"
+                : "Device Offline"
+        );
+    }
+
+    function setConnectionError() {
+        $statusDot.removeClass("good").addClass("danger");
+        $sysStatus.text("Connection Error");
+    }
+
+    function updateMotorState(motor) {
+        const isOn = Boolean(motor);
+        $motorState
+            .toggleClass("good", isOn)
+            .toggleClass("danger", !isOn)
+            .text(isOn ? "ON" : "OFF")
+            .data("state", isOn ? "on" : "off");
+    }
+
+    function updateGauges(data) {
+        setGauge(
+            "waterArc",
+            "waterText",
+            data.level,
+            data.level,
+            "%"
+        );
+        setGauge(
+            "voltageArc",
+            "voltageText",
+            toPercent(data.voltage),
+            data.voltage,
+            "V"
+        );
+        setGauge(
+            "volumeArc",
+            "volumeText",
+            toPercent(data.level * 10, 0, 1000),
+            data.level * 10,
+            "L"
+        );
+    }
+
+    function setGauge(arcId, textId, percent, text, suffix = "%") {
+        const offset =
+            GAUGE_CIRCUMFERENCE -
+            (percent / 100) * GAUGE_CIRCUMFERENCE;
+
+        $("#" + arcId).css({
+            strokeDasharray: GAUGE_CIRCUMFERENCE.toFixed(2),
+            strokeDashoffset: offset.toFixed(2)
+        });
+        $("#" + textId).text(text + suffix);
+    }
 
     function renderDevice(deviceId) {
         const formattedDeviceId = deviceId
@@ -379,128 +407,58 @@ $(document).ready(async function () {
         `);
     }
 
-    // =========================
-    // LOAD DEVICE
-    // =========================
+    // =========================================================
+    // UTILITIES
+    // =========================================================
 
-    function loadDevice() {
-        $.ajax({
-            url: "/api/get_devices.php",
-            method: "GET",
-            timeout: 5000,
-            success: function (res) {
-                if (res.success && res.data) {
-                    renderDevice(res.data.id);
-                } else {
-                    $deviceList.html(NO_DEVICE_HTML);
-                }
-            },
-
-            error: function (err) {
-                console.error(err);
-                $deviceList.html(NO_DEVICE_HTML);
-            }
-        });
-    }
-
-    // =========================
-    // REMOVE DEVICE
-    // =========================
-
-    $(document).on("click", ".remove-device", function () {
-        localStorage.removeItem("deviceId");
-        $deviceList.html(NO_DEVICE_HTML);
-
-        showMsg("Device removed.");
-    });
-
-    // =========================
-    // TOAST MESSAGE
-    // =========================
-
-    function showMsg(message, type = "success") {
-        const toast = $("<div>").addClass(`toast ${type}`).text(message);
-        $toastBox
-            .append(toast)
-            .css("display", "flex");
-
-        setTimeout(() => {
-            toast.fadeOut(300, function () {
-                $(this).remove();
-                if ($toastBox.children().length === 0) {
-                    $toastBox.hide();
-                }
-            });
-
-        }, 3000);
-    }
-
-    // =========================
-    // INITIAL LOAD
-    // =========================
-
-    function setGauge(arcId, textId, percent, text, suffix = '%') {
-        const $circle = $('#' + arcId);
-        const $text = $('#' + textId);
-        const circumference = 2 * Math.PI * 78;
-        const offset = circumference - (percent / 100) * circumference;
-        $circle.css({
-            'stroke-dasharray': circumference.toFixed(2),
-            'stroke-dashoffset': offset.toFixed(2)
-        });
-
-        $text.text(text + suffix);
-    }
-
-    function updateClock() {
-        if (document.hidden) return;
-        const now = new Date();
-        $clockPill.text(
-            now.toLocaleTimeString([], { hour12: false })
+    function toPercent(value, min = 200, max = 270) {
+        return Math.max(
+            0,
+            Math.min(
+                100,
+                ((value - min) / (max - min)) * 100
+            )
         );
     }
 
-
-    async function refreshAccessToken() {
-        try {
-            await $.ajax({
-                url: "/api/refresh.php",
-                type: "POST",
-            });
-            return true;
+    function updateClock() {
+        if (document.hidden) {
+            return;
         }
-        catch (err) {
-            window.location.href = "/auth";
-            return false;
-        }
+        $clockPill.text(
+            new Date().toLocaleTimeString([], {
+                hour12: false
+            })
+        );
     }
 
-    async function checkAuth() {
-        try {
-            const response = await $.ajax({
-                url: "/api/me.php",
-                type: "GET",
-            });
+    function updateLastSeenTimer() {
+        if (!lastSeen) {
+            return;
         }
-        catch (err) {
-            const refreshed = await refreshAccessToken();
-            if (!refreshed) {
-                window.location.href = "/auth";
-            }
-            else {
-                location.reload();
-            }
-        }
+        $updateTimer.text(
+            `last sync ${timeAgo(lastSeen)}`
+        );
+        const seconds = Math.floor(
+            (Date.now() - lastSeen.getTime()) / 1000
+        );
+        setStatus(seconds <= 20);
     }
 
-    await checkAuth();
-    if (deviceId) {
-        renderDevice(deviceId);
-        await refreshPage();
-    } else {
-        await loadDevice();
+    function timeAgo(dateObj) {
+        const diffSec = Math.floor((Date.now() - dateObj) / 1000);
+        if (diffSec < 60) {
+            return `${diffSec} sec ago`;
+        }
+        const diffMin = Math.floor(diffSec / 60);
+        if (diffMin < 60) {
+            return `${diffMin} min ago`;
+        }
+        const diffHour = Math.floor(diffMin / 60);
+        if (diffHour < 24) {
+            return `${diffHour} hour ago`;
+        }
+        const diffDay = Math.floor(diffHour / 24);
+        return `${diffDay} day ago`;
     }
-    updateClock();
-    setInterval(updateClock, 1000);
-    setInterval(await refreshPage, 5000);
 });
