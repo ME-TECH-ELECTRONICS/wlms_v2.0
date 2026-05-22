@@ -1,4 +1,4 @@
-$(document).ready(async function () {
+$(document).ready(function () {
 
     // =========================================================
     // STATE
@@ -10,7 +10,7 @@ $(document).ready(async function () {
     let refreshPromise = null;
 
     const GAUGE_CIRCUMFERENCE = 2 * Math.PI * 78;
-
+    const GAUGE_CIRCUMFERENCE_FIXED = GAUGE_CIRCUMFERENCE.toFixed(2);
     // =========================================================
     // DOM CACHE
     // =========================================================
@@ -27,11 +27,7 @@ $(document).ready(async function () {
     // CONSTANTS
     // =========================================================
 
-    const NO_DEVICE_HTML = `
-        <p style="color:#95a8c7;">
-            No devices Found. Please refresh the list or add a new device.
-        </p>
-    `;
+    const NO_DEVICE_HTML = `<p style="color:#95a8c7;">No devices Found. Please refresh the list or add a new device.</p>`;
 
     const inputs = [
         { id: "startThreshold", min: 1, max: 100, regex: /[^0-9]/g, type: "number" },
@@ -46,11 +42,28 @@ $(document).ready(async function () {
         { id: "wifiPassword", min: 1, max: 32, regex: /[^ -~]/g, type: "text" }
     ];
 
+    const gauges = {
+        water: {
+            $arc: $("#waterArc"),
+            $text: $("#waterText")
+        },
+        voltage: {
+            $arc: $("#voltageArc"),
+            $text: $("#voltageText")
+        },
+        volume: {
+            $arc: $("#volumeArc"),
+            $text: $("#volumeText")
+        }
+    };
+
     // =========================================================
     // INITIALIZATION
     // =========================================================
 
-    init();
+    init().catch(err => {
+        console.error("Initialization failed:", err);
+    });
 
     async function init() {
 
@@ -119,13 +132,18 @@ $(document).ready(async function () {
 
     async function apiRequest({ url, method = "GET", data = null, timeout = 5000, retry = true }) {
         try {
-            return await $.ajax({
+            const options = {
                 url,
                 method,
                 timeout,
-                contentType: "application/json",
-                data: data ? JSON.stringify(data) : null
-            });
+                dataType: "json"
+            };
+
+            if (data !== null) {
+                options.contentType = "application/json";
+                options.data = JSON.stringify(data);
+            }
+            return await $.ajax(options);
         } catch (xhr) {
             if (xhr.status === 401 && retry) {
                 const refreshed = await refreshAccessToken();
@@ -143,15 +161,12 @@ $(document).ready(async function () {
         }
     }
 
-    function togglePasswordVisibility() {
-        const input = $("#wifiPassword");
-        const type =
-            input.attr("type") === "password"
-                ? "text"
-                : "password";
-
-        input.attr("type", type);
-        $(this).toggleClass("fa-eye fa-eye-slash");
+    function togglePasswordVisibility(event) {
+        const $btn = $(event.currentTarget);
+        const $input = $("#wifiPassword");
+        const type = $input.attr("type") === "password" ? "text" : "password";
+        $input.attr("type", type);
+        $btn.toggleClass("fa-eye fa-eye-slash");
     }
 
     function switchPage() {
@@ -165,18 +180,21 @@ $(document).ready(async function () {
 
     function toggleMobileMenu() {
         const $nav = $(".nav");
-        if ($nav.is(":visible")) {
-            $nav.slideUp(200);
-        } else {
-            $nav.slideDown(500, function () {
-                $(this).css("display", "flex");
-            });
-        }
+
+        $nav.stop(true, true).slideToggle(200, function () {
+            if ($nav.is(":visible")) {
+                $nav.css("display", "flex");
+            }
+        });
     }
 
     function removeDevice() {
         localStorage.removeItem("deviceId");
         $deviceList.html(NO_DEVICE_HTML);
+        deviceId = null;
+        lastSeen = null;
+        setStatus(false);
+        updateMotorState(false);
         showMsg("Device removed.");
     }
 
@@ -206,7 +224,24 @@ $(document).ready(async function () {
         }
     }
 
-
+    async function loadDevice() {
+        try {
+            const res = await apiRequest({
+                url: "/api/get_devices.php"
+            });
+            if (res.success && res.data) {
+                deviceId = res.data.id;
+                localStorage.setItem("deviceId", deviceId);
+                renderDevice(deviceId);
+                await refreshPage();
+            } else {
+                $deviceList.html(NO_DEVICE_HTML);
+            }
+        } catch (err) {
+            console.error(err);
+            $deviceList.html(NO_DEVICE_HTML);
+        }
+    }
 
     async function saveSettings() {
         const payload = {};
@@ -214,7 +249,7 @@ $(document).ready(async function () {
             if (input.id === "deviceId") continue;
             let value = $(`#${input.id}`).val();
             if (input.type === "number") {
-                value = parseInt(value, 10);
+                value = value === "" ? null : parseInt(value, 10);
             }
             payload[input.id] = value;
         }
@@ -239,9 +274,6 @@ $(document).ready(async function () {
     async function toggleMotor() {
         const $btn = $("#motorStartBtn");
         $btn.prop("disabled", true);
-        setTimeout(() => {
-            $btn.prop("disabled", false);
-        }, 10000);
         try {
             const res = await apiRequest({
                 url: "/api/dash_info.php",
@@ -261,6 +293,10 @@ $(document).ready(async function () {
         } catch (err) {
             console.error(err);
             showMsg("An error occurred while toggling motor.", "error");
+        } finally {
+            setTimeout(() => {
+                $btn.prop("disabled", false);
+            }, 10000);
         }
     }
 
@@ -283,9 +319,15 @@ $(document).ready(async function () {
                 return;
             }
             const data = res.data;
-            lastSeen = new Date(
-                data.last_updated.replace(" ", "T")
-            );
+            if (typeof data.last_updated === "string") {
+                const parsedDate = new Date(
+                    data.last_updated.replace(" ", "T")
+                );
+
+                if (!isNaN(parsedDate)) {
+                    lastSeen = parsedDate;
+                }
+            }
             updateGauges(data);
             updateMotorState(data.motor);
         } catch (err) {
@@ -319,7 +361,7 @@ $(document).ready(async function () {
 
     async function checkAuth() {
         try {
-            await apiRequest({url: "/api/me.php"});
+            await apiRequest({ url: "/api/me.php" });
         } catch {
             window.location.href = "/auth";
         }
@@ -357,38 +399,32 @@ $(document).ready(async function () {
 
     function updateGauges(data) {
         setGauge(
-            "waterArc",
-            "waterText",
+            gauges.water,
             data.level,
             data.level,
             "%"
         );
         setGauge(
-            "voltageArc",
-            "voltageText",
+            gauges.voltage,
             toPercent(data.voltage),
             data.voltage,
             "V"
         );
         setGauge(
-            "volumeArc",
-            "volumeText",
+            gauges.volume,
             toPercent(data.level * 10, 0, 1000),
             data.level * 10,
             "L"
         );
     }
 
-    function setGauge(arcId, textId, percent, text, suffix = "%") {
-        const offset =
-            GAUGE_CIRCUMFERENCE -
-            (percent / 100) * GAUGE_CIRCUMFERENCE;
-
-        $("#" + arcId).css({
-            strokeDasharray: GAUGE_CIRCUMFERENCE.toFixed(2),
+    function setGauge(gauge, percent, text, suffix = "%") {
+        const offset = GAUGE_CIRCUMFERENCE - (percent / 100) * GAUGE_CIRCUMFERENCE;
+        gauge.$arc.css({
+            strokeDasharray: GAUGE_CIRCUMFERENCE_FIXED,
             strokeDashoffset: offset.toFixed(2)
         });
-        $("#" + textId).text(text + suffix);
+        gauge.$text.text(text + suffix);
     }
 
     function renderDevice(deviceId) {
@@ -448,17 +484,20 @@ $(document).ready(async function () {
     function timeAgo(dateObj) {
         const diffSec = Math.floor((Date.now() - dateObj) / 1000);
         if (diffSec < 60) {
-            return `${diffSec} sec ago`;
+            return `${diffSec} sec${diffSec !== 1 ? "s" : ""} ago`;
         }
+
         const diffMin = Math.floor(diffSec / 60);
         if (diffMin < 60) {
-            return `${diffMin} min ago`;
+            return `${diffMin} min${diffMin !== 1 ? "s" : ""} ago`;
         }
+
         const diffHour = Math.floor(diffMin / 60);
         if (diffHour < 24) {
-            return `${diffHour} hour ago`;
+            return `${diffHour} hour${diffHour !== 1 ? "s" : ""} ago`;
         }
+
         const diffDay = Math.floor(diffHour / 24);
-        return `${diffDay} day ago`;
+        return `${diffDay} day${diffDay !== 1 ? "s" : ""} ago`;
     }
 });
