@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WLMS v1.0</title>
+    <meta name="description" content="Water Level Monitoring System v1.0">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/css/styles.min.css" />
+</head>
+
+<body>
+    <div id="toastBox"></div>
+    <div class="shell" id="appShell">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-badge"><img src="/images/logo.png" alt="" width="40" height="40"></div>
+                <div>
+                    <h1>WLMS v1.0</h1>
+                </div>
+            </div>
+            <button class="hamburger" id="menu" aria-label="Toggle menu"><i class="fa-solid fa-bars fa-2xl"></i></button>
+            <nav class="nav">
+                <button class="active" data-page="dashboard">Dashboard</button>
+                <button data-page="devices">Devices</button>
+                <button data-page="logs">Action Logs</button>
+                <button data-page="settings">Settings</button>
+                <button id="logout">Logout</button>
+            </nav>
+        </aside>
+
+        <main class="main">
+            <div class="topbar">
+                <div class="title">
+                    <h2>Control Center</h2>
+                </div>
+                <div class="top-actions">
+                    <div class="pill" id="updateTimer"> Last Sync 2 sec ago</div>
+                    <div class="pill"><span class="status-dot danger"></span><span id="sysStatus">Device offline</span>
+                    </div>
+                    <div class="pill" id="clockPill">--:--:--</div>
+                </div>
+            </div>
+
+            <section id="page-dashboard" class="grid page">
+                <div class="section">
+                    <div class="card panel">
+                        <div class="panel-header">
+                            <h3>Device Status</h3>
+                        </div>
+                        <div class="chart-wrap">
+                            <div class="gauge">
+                                <svg viewBox="0 0 200 200" aria-label="water level gauge">
+                                    <circle cx="100" cy="100" r="78" stroke="rgba(255,255,255,0.10)" stroke-width="18"
+                                        fill="none"></circle>
+                                    <circle id="waterArc" cx="100" cy="100" r="78" stroke="url(#gradWater)"
+                                        stroke-width="18" stroke-linecap="round" fill="none" stroke-dasharray="490"
+                                        stroke-dashoffset="490"></circle>
+                                    <defs>
+                                        <linearGradient id="gradWater" x1="0%" y1="0%" x2="100%" y2="100%">
+                                            <stop offset="0%" stop-color="#4ea1ff" />
+                                            <stop offset="100%" stop-color="#31d0aa" />
+                                        </linearGradient>
+                                    </defs>
+                                    <text x="100" y="108" text-anchor="middle" id="waterText">0%</text>
+                                </svg>
+                                <div class="gauge-label">
+                                    <strong>Water Level</strong>
+                                    <span>Thresholds: start at <span id="waterStart">0%</span>, stop at <span
+                                            id="waterStop">0%</span></span>
+                                </div>
+                            </div>
+                            <div class="gauge">
+                                <svg viewBox="0 0 200 200" aria-label="voltage gauge">
+                                    <circle cx="100" cy="100" r="78" stroke="rgba(255,255,255,0.10)" stroke-width="18"
+                                        fill="none"></circle>
+                                    <circle id="voltageArc" cx="100" cy="100" r="78" stroke="url(#gradVolt)"
+                                        stroke-width="18" stroke-linecap="round" fill="none" stroke-dasharray="490"
+                                        stroke-dashoffset="490"></circle>
+                                    <defs>
+                                        <linearGradient id="gradVolt" x1="0%" y1="0%" x2="100%" y2="100%">
+                                            <stop offset="0%" stop-color="#f8bf4d" />
+                                            <stop offset="100%" stop-color="#ff6b6b" />
+                                        </linearGradient>
+                                    </defs>
+                                    <text x="100" y="108" text-anchor="middle" id="voltageText">0V</text>
+                                </svg>
+                                <div class="gauge-label">
+                                    <strong>Supply Voltage</strong>
+                                </div>
+                            </div>
+                            <div class="gauge">
+                                <svg viewBox="0 0 200 200" aria-label="volume gauge">
+                                    <circle cx="100" cy="100" r="78" stroke="rgba(255,255,255,0.10)" stroke-width="18"
+                                        fill="none"></circle>
+                                    <circle id="volumeArc" cx="100" cy="100" r="78" stroke="url(#gradVol)"
+                                        stroke-width="18" stroke-linecap="round" fill="none" stroke-dasharray="490"
+                                        stroke-dashoffset="490"></circle>
+                                    <defs>
+                                        <linearGradient id="gradVol" x1="0%" y1="0%" x2="100%" y2="100%">
+                                            <stop offset="0%" stop-color="#4ea1ff" />
+                                            <stop offset="100%" stop-color="#31d0aa" />
+                                        </linearGradient>
+                                    </defs>
+                                    <text x="100" y="108" text-anchor="middle" id="volumeText">0L</text>
+                                </svg>
+                                <div class="gauge-label">
+                                    <strong>Volume of Water</strong>
+                                </div>
+                            </div>
+                        </div>
+                        <br>
+                        <div class="detail-item">
+                            <div class="left">
+                                <strong>Motor Status</strong>
+                                <span>Current command state</span>
+                            </div>
+                            <button class="motor-btn" id="motorStartBtn">Start/Stop</button>
+                            <span class="badge danger" id="motorState">OFF</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="page-devices" class="card panel page hidden">
+                <div class="panel-header">
+                    <div>
+                        <h3>Devices</h3>
+                    </div>
+                    <span class="badge neutral" style="cursor: pointer;" id="deviceRefresh"><i class="fa-solid fa-arrows-rotate"></i> Refresh</span>
+                </div>
+                <div class="detail-item ">
+                    <div class="field">
+                        <label for="startThreshold">Device ID</label>
+                        <input class="input" id="deviceId" type="text" name />
+                    </div>
+                    <button class="device-btn" id="addDeviceBtn">Add</button>
+                </div>
+                <br>
+                <div class="detail-item" id="deviceList"></div>
+            </section>
+
+            <section id="page-logs" class="card panel hidden page" style="margin-top:18px;">
+                <div class="panel-header">
+                    <div>
+                        <h3>Action Logs</h3>
+                        <small>Sorted by date, search and filter activity here</small>
+                    </div>
+                    <span class="badge neutral">Audit trail</span>
+                </div>
+                <div class="log-toolbar">
+                    <input class="input" id="logSearch" type="search" placeholder="Search logs..." />
+                    <select class="select" id="logFilter">
+                        <option value="all">All events</option>
+                        <option value="motor">Motor</option>
+                        <option value="settings">Settings</option>
+                        <option value="security">Security</option>
+                        <option value="alarm">Alarm</option>
+                    </select>
+                    <button class="btn secondary" id="sortBtn">Sort: Newest</button>
+                </div>
+                <div style="overflow:auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th data-sort="date">Date/Time</th>
+                                <th data-sort="type">Type</th>
+                                <th>Description</th>
+                                <th data-sort="status">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logBody"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="page-settings" class="card panel hidden page" style="margin-top:18px;">
+                <div class="panel-header">
+                    <div>
+                        <h3>Controller Settings</h3>
+                    </div>
+                </div>
+
+                <div class="settings-grid">
+                    <div class="field">
+                        <label for="startThreshold">Water level to start motor (%)</label>
+                        <input id="startThreshold" type="number" min="0" max="100" value="35" />
+                        <small>Motor should start when tank drops below this level.</small>
+                    </div>
+                    <div class="field">
+                        <label for="stopThreshold">Water level to stop motor (%)</label>
+                        <input id="stopThreshold" type="number" min="0" max="100" value="90" />
+                        <small>Motor should stop when tank reaches this level.</small>
+                    </div>
+                    <div class="field">
+                        <label for="dryRunTimeout">Dry run timeout (seconds)</label>
+                        <input id="dryRunTimeout" type="number" min="0" step="1" value="10" />
+                        <small>Minimum check time before dry run is triggered</small>
+                    </div>
+                    <div class="field">
+                        <label for="dryRunCancel">Minimum level to cancel Dry Run</label>
+                        <input id="dryRunCancel" type="number" min="5" value="15" />
+                        <small>Cancel dry run if water level rises above this threshold.</small>
+                    </div>
+                    <div class="field">
+                        <label for="motorTimeout">Maximum motor runtime (minutes)</label>
+                        <input id="motorTimeout" type="number" min="1" value="10" />
+                        <small>Auto-stop after this duration to reduce damage risk.</small>
+                    </div>
+                    <div class="field">
+                        <label for="motorStartHour">Motor start hour (24-hour format)</label>
+                        <input id="motorStartHour" type="number" min="0" max="23" value="6" />
+                        <small>Motor will only run between start and stop hours.</small>
+                    </div>
+                    <div class="field">
+                        <label for="motorStopHour">Motor stop hour (24-hour format)</label>
+                        <input id="motorStopHour" type="number" min="1" max="23" value="10" />
+                        <small>Motor will only run between start and stop hours.</small>
+                    </div>
+                    <div class="field">
+                        <label for="wifiSsid">WiFi AP SSID</label>
+                        <input id="wifiSsid" type="text" value="wlms" />
+                        <small>WiFi access point SSID to connect to</small>
+                    </div>
+                    <div class="field">
+                        <label for="wifiPassword">WiFi AP Password</label>
+                        <div class="input-wrap">
+                            <input class="input" id="wifiPassword" type="password" value="wlms@2026"
+                                style="width: 100%;" />
+                            <i class="fa-solid fa-eye password-show"></i>
+                        </div>
+                        <small>WiFi access point password</small>
+                    </div>
+                </div>
+
+                <div class="actions">
+                    <button class="btn" id="saveSettings">Save Settings</button>
+                </div>
+
+            </section>
+        </main>
+    </div>
+    <script src="/js/jquery-3.7.1.min.js"></script>
+    <script src="/js/script.min.js" defer></script>
+</body>
+
+</html>
