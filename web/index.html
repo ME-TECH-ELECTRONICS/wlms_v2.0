@@ -6,207 +6,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WLMS v1.0</title>
     <meta name="description" content="Water Level Monitoring System v1.0">
-
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        :root {
-            --bg: #07111f;
-            --bg2: #0c1728;
-            --text: #e8f0ff;
-            --muted: #90a5c3;
-            --accent: #4ea1ff;
-            --accent2: #31d0aa;
-            --border: rgba(255, 255, 255, 0.08);
-        }
-
-        body {
-            font-family: Arial, Helvetica, sans-serif;
-            background: linear-gradient(180deg, var(--bg), #040812);
-            color: var(--text);
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-        }
-
-        header {
-            width: 100%;
-            border-bottom: 1px solid var(--border);
-            background: rgba(7, 17, 31, 0.9);
-        }
-
-        .container {
-            width: 100%;
-            max-width: 1200px;
-
-            margin: 0 auto;
-            padding: 0 24px;
-        }
-
-        .navbar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 20px 0;
-            gap: 20px;
-        }
-
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-        }
-
-        .brand img {
-            width: 42px;
-            height: 42px;
-        }
-
-        .brand h1 {
-            font-size: 1.2rem;
-        }
-
-        .btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            text-decoration: none;
-            color: white;
-            background: linear-gradient(135deg, var(--accent), var(--accent2));
-            padding: 13px 22px;
-            border-radius: 12px;
-            font-weight: bold;
-            transition: 0.2s ease;
-        }
-
-        .btn:hover {
-            transform: translateY(-2px);
-        }
-
-        .hero {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            padding: 40px 20px;
-        }
-
-        main.hero .container {
-            width: 100%;
-        }
-
-        .hero-content {
-            max-width: 700px;
-        }
-
-        .hero h2 {
-            font-size: clamp(2.5rem, 5vw, 4.5rem);
-            line-height: 1.1;
-            margin-bottom: 24px;
-        }
-
-        .hero p {
-            color: var(--muted);
-            font-size: 1.05rem;
-            line-height: 1.8;
-            margin-bottom: 35px;
-        }
-
-        .features {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 28px;
-            margin-top: 40px;
-        }
-
-        .feature {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            color: var(--muted);
-        }
-
-        .feature i {
-            color: var(--accent);
-            font-size: 1.1rem;
-        }
-
-        footer .container {
-            text-align: center;
-        }
-
-        footer {
-            border-top: 1px solid var(--border);
-            padding: 24px 0;
-            color: var(--muted);
-            font-size: 0.9rem;
-        }
-
-        @media (max-width: 700px) {
-
-            .container {
-                padding: 0 18px;
-            }
-
-            .navbar {
-                padding: 16px 0;
-            }
-
-            .brand h1 {
-                font-size: 1rem;
-            }
-
-            .btn {
-                padding: 12px 18px;
-                font-size: 0.95rem;
-            }
-
-            .hero {
-                padding: 50px 0;
-            }
-
-            .hero-content {
-                max-width: 100%;
-            }
-
-            .hero h2 {
-                font-size: 2.2rem;
-                line-height: 1.2;
-            }
-
-            .hero p {
-                font-size: 1rem;
-                line-height: 1.7;
-            }
-
-            .features {
-                flex-direction: column;
-                gap: 16px;
-                margin-top: 32px;
-            }
-
-            footer {
-                padding: 18px 0;
-                text-align: center;
-            }
-        }
+        .brand img,.btn{background:linear-gradient(135deg,var(--accent),var(--accent2))}.container,header,main.hero .container{width:100%}*{margin:0;padding:0;box-sizing:border-box}:root{--bg:#07111f;--bg2:#0c1728;--text:#e8f0ff;--muted:#90a5c3;--accent:#4ea1ff;--accent2:#31d0aa;--border:rgba(255, 255, 255, 0.08)}body{font-family:Arial,Helvetica,sans-serif;background:linear-gradient(180deg,var(--bg),#040812);color:var(--text);min-height:100vh;display:flex;flex-direction:column}.brand,.navbar{display:flex;align-items:center}header{border-bottom:1px solid var(--border);background:rgba(7,17,31,.9)}.container{max-width:1200px;margin:0 auto;padding:0 24px}.navbar{justify-content:space-between;padding:15px 0;gap:20px}.brand{gap:14px}.brand img{width:42px;height:42px;padding:5px;border-radius:10px}.brand h1{font-size:1.2rem}.btn{display:inline-flex;align-items:center;gap:10px;text-decoration:none;color:#fff;padding:13px 22px;border-radius:12px;font-weight:700;transition:.2s}.feature,.features,.hero{display:flex}.btn:hover{transform:translateY(-2px)}.hero{flex:1;align-items:center;padding:40px 20px}.hero-content{max-width:700px}.hero h2{font-size:clamp(2.5rem, 5vw, 4.5rem);line-height:1.1;margin-bottom:24px}.attribute{color:var(--accent)}.feature,.hero p,footer{color:var(--muted)}.hero p{font-size:1.05rem;line-height:1.8;margin-bottom:35px}.features{flex-wrap:wrap;gap:28px;margin-top:40px}.feature{align-items:center;gap:12px}.feature i{color:var(--accent);font-size:1.1rem}footer .container{text-align:center}footer{border-top:1px solid var(--border);padding:18px 0;font-size:.9rem}@media (max-width:700px){.container{padding:0 18px}.navbar{padding:16px 0}.brand h1{font-size:1rem}.btn{padding:12px 18px;font-size:.95rem}.hero{padding:50px 0}.hero-content{max-width:100%}.hero h2{font-size:2.2rem;line-height:1.2}.hero p{font-size:1rem;line-height:1.7}.features{flex-direction:column;gap:16px;margin-top:32px}footer{padding:18px 0;text-align:center}}
     </style>
 </head>
 
 <body>
-
     <header>
         <div class="container navbar">
             <div class="brand">
                 <img src="/images/logo.png" alt="WLMS Logo">
                 <h1>WLMS v1.0</h1>
             </div>
-
             <a href="/auth" class="btn">
                 <i class="fa-solid fa-right-to-bracket"></i>
                 Login
@@ -218,29 +30,24 @@
         <div class="container">
             <div class="hero-content">
                 <h2>Water Level Monitoring System</h2>
-
                 <p>
                     WLMS v1.0 is a smart water level monitoring and motor automation system
                     designed to monitor tank levels, automate motor control, and provide
                     remote access through a modern dashboard.
                 </p>
-
                 <a href="/dashboard" class="btn">
                     <i class="fa-solid fa-gauge-high"></i>
                     Open Dashboard
                 </a>
-
                 <div class="features">
                     <div class="feature">
                         <i class="fa-solid fa-water"></i>
                         <span>Real-time Monitoring</span>
                     </div>
-
                     <div class="feature">
                         <i class="fa-solid fa-gear"></i>
                         <span>Motor Automation</span>
                     </div>
-
                     <div class="feature">
                         <i class="fa-solid fa-wifi"></i>
                         <span>Remote Access</span>
@@ -251,9 +58,7 @@
     </main>
 
     <footer>
-        <div class="container">
-            © 2026 WLMS v1.0
-        </div>
+        <div class="container">© 2026 WLMS v1.0 — Developed by <a class="attribute" href="https://github.com/ME-TECH-ELECTRONICS" target="_blank">METECH</a>.</div>
     </footer>
 
 </body>

@@ -226,8 +226,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $lockUntil = null;
 
             // Lock if limit exceeded
-            if ($failedAttempts >= $MAX_ATTEMPTS) {
-                $lockUntil = date("Y-m-d H:i:s", time() + $LOCK_TIME);
+            if ($failedAttempts >= $MAX_LOGIN_ATTEMPTS) {
+                $lockUntil = date("Y-m-d H:i:s", time() + $LOGIN_LOCK_TIME);
             }
 
             // Update DB
@@ -245,7 +245,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $updateUser->close();
             simpleResponse([
                 'success' => false,
-                'message' => $failedAttempts >= $MAX_ATTEMPTS
+                'message' => $failedAttempts >= $MAX_LOGIN_ATTEMPTS
                     ? 'Account locked for ' . ($LOGIN_LOCK_TIME / 60) . ' minutes.'
                     : 'Invalid credentials'
             ]);
