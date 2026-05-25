@@ -28,3 +28,20 @@ $VERIFICATION_EMAIL_TEMPLATE =
         <p style="font-size:11px;color:#999;">WLMS Support<br> This is an automated message, please do not reply.</p>
     </div>
 </div>'; //{{name}}, {{domain}}, {{token}}
+
+$PASSWORD_CHANGED_EMAIL_TEMPLATE = 
+'<div style="font-family:Segoe UI,Arial,sans-serif;background:#f4f6f8;padding:30px;">
+    <div style="max-width:520px;margin:auto;background:#ffffff;border-radius:10px;padding:30px;">
+        <h2 style="color:#4f46e5;margin-bottom:10px;">Password Changed Successfully 🔐</h2>
+        <p style="color:#333;font-size:14px;">Hi <strong>{{name}}</strong>,</p>
+        <p style="color:#555;font-size:14px;">Your account password has been successfully changed.</p>
+        <p style="color:#555;font-size:14px;">If you made this change, no further action is required.</p>
+        <div style="background:#f8fafc;border-left:4px solid #4f46e5;padding:12px 15px;margin:20px 0;border-radius:6px;">
+            <p style="margin:0;color:#444;font-size:13px;">For security reasons, we recommend keeping your password private and using a strong unique password.</p>
+        </div>
+        <p style="color:#d9534f;font-size:13px;">If you did not change your password, please contact support.</p>
+        <hr style="margin:20px 0;border:none;border-top:1px solid #eee;">
+        <p style="font-size:11px;color:#999;">WLMS Support<br>This is an automated message, please do not reply.
+        </p>
+    </div>
+</div>';

@@ -1,5 +1,5 @@
 <?php
-include_once "config.php";
+require_once __DIR__ . '/../api/config.php';
 //validate cloudeflare turnstile captcha
 function validateCaptcha(string $token, string $secretKey): array|bool {
     $url = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';

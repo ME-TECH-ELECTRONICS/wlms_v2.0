@@ -1,6 +1,6 @@
 <?php
-include_once 'config.php';
-include_once 'utility.php';
+include_once __DIR__ . '/../api/config.php';
+include_once __DIR__ . '/../api/utility.php';
 include_once __DIR__ . '/../templates/email.php';
 
 

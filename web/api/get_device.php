@@ -1,9 +1,9 @@
 <?php
 require_once __DIR__ . '/../vendor/autoload.php';
 
-include_once 'config.php';
-include_once 'utility.php';
-include_once '../middleware/auth.php';
+include_once __DIR__ . '/../api/config.php';
+include_once __DIR__ . '/../api/utility.php';
+include_once __DIR__ . '/../api/auth_middleware.php';
 
 header('Content-Type: application/json');
 

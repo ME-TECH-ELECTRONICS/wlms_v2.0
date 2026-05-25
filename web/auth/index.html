@@ -370,7 +370,7 @@
                             if (res.devices) localStorage.setItem('deviceId', res.devices);
 
                             $('#loginForm')[0].reset();
-                            setTimeout(() => location.href = "/", 2000);
+                            setTimeout(() => location.href = "/dashboard", 2000);
                         } else {
                             showMsg(res.message, 'error');
                         }
