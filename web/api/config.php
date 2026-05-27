@@ -20,6 +20,9 @@ $LOGIN_LOCK_TIME = 300;
 $ACCESS_TOKEN_EXP = 3600;
 $REFRESH_TOKEN_EXP = 604800;
 
+$PASSWORD_RESET_COOLDOWN = 300;
+$PASSWORD_RESET_EXPIRY = 3600;
+
 $conn = new mysqli($DB_HOST, $DB_USER, $DB_PASS, $DB_NAME);
 if (!$conn) {
     die("{'success': false, 'message': 'Database Error " . $conn->connect_error . "'}");

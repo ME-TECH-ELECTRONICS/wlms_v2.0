@@ -2,7 +2,7 @@
 
 require_once __DIR__ . '/../api/config.php';
 require_once __DIR__ . '/../api/utility.php';
-
+require_once __DIR__ . '/../templates/email.php';
 header("Content-Type: application/json");
 
 if ($_SERVER["REQUEST_METHOD"] !== "POST") {
@@ -42,7 +42,7 @@ if (strlen($password) < 8) {
 try {
 
     $tokenHash = hash("sha256", $token);
-    $stmt = $conn->prepare("SELECT id, user_id, name FROM password_resets WHERE token_hash = ? AND used = 0 AND expires_at > NOW() LIMIT 1");
+    $stmt = $conn->prepare("SELECT id, user_id, email, name FROM password_resets WHERE token_hash = ? AND used = 0 AND expires_at > NOW() LIMIT 1");
     $stmt->bind_param("s", $tokenHash);
     $stmt->execute();
     $result = $stmt->get_result();
@@ -80,12 +80,12 @@ try {
     $emailContent = str_replace(
         ["{{name}}", "{{domain}}"],
         [$reset["name"], $DOMAIN_NAME],
-        $PASSWORD_RESET_SUCCESS_EMAIL_TEMPLATE
+        $PASSWORD_CHANGED_EMAIL_TEMPLATE
     );
-    sendMail($EMAIL_API_KEY, $reset["user_id"], "Password Reset Successful", $reset["name"], $emailContent));
+    sendMail($EMAIL_API_KEY, $reset["email"], "Password Changed", $reset["name"], $emailContent);
     simpleResponse([
         "success" => true,
-        "message" => "Password reset successful"
+        "message" => "Password changed successfully"
     ]);
 
 } catch (Exception $e) {

@@ -46,10 +46,29 @@ try {
             "message" => "If the email exists, a reset link has been sent."
         ]);
     }
+    $cooldownStmt = $conn->prepare("SELECT created_at FROM password_resets WHERE user_id = ? AND used = 0 ORDER BY created_at DESC LIMIT 1");
 
+    $cooldownStmt->bind_param("i", $user["id"]);
+    $cooldownStmt->execute();
+
+    $cooldownResult = $cooldownStmt->get_result();
+    $lastReset = $cooldownResult->fetch_assoc();
+
+    if ($lastReset) {
+        $lastRequestTime = strtotime($lastReset["created_at"]);
+        $currentTime = time();
+        $remaining = $PASSWORD_RESET_COOLDOWN - ($currentTime - $lastRequestTime);
+        if ($remaining > 0) {
+            $minutes = ceil($remaining / 60);
+            simpleResponse([
+                "success" => false,
+                "message" => "Please wait {$minutes} minute(s) before requesting another reset email."
+            ], 429);
+        }
+    }
     $token = generateRandomToken();
     $tokenHash = hash("sha256", $token);
-    $expiresAt = date("Y-m-d H:i:s", time() + 3600);
+    $expiresAt = date("Y-m-d H:i:s", time() + $PASSWORD_RESET_EXPIRY);
     $deleteStmt = $conn->prepare("
         DELETE FROM password_resets
         WHERE user_id = ?
@@ -74,11 +93,8 @@ try {
         "message" => "If the email exists, a reset link has been sent."
     ]);
 } catch (Exception $e) {
-
-    http_response_code(500);
-
-    echo json_encode([
+    simpleResponse([
         "success" => false,
         "message" => "Server error"
-    ]);
+    ], 500);
 }
