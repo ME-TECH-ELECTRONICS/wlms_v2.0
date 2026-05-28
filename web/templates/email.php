@@ -7,7 +7,7 @@ $FORGET_PASSWORD_EMAIL_TEMPLATE =
         <p style="color:#333;font-size:14px;"> Hi <strong>{{name}}</strong>,</p>
         <p style="color:#555;font-size:14px;">We received a request to reset your password. Click the button below to set a new password.</p>
         <div style="margin:25px 0;text-align:center;">
-            <a href="https://{{domain}}/reset-password?token={{token}}" target="_blank" style="background:#ef4444;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">Reset Password</a>
+            <a href="https://{{domain}}/auth/reset-password?token={{token}}" target="_blank" style="background:#ef4444;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;font-weight:bold;">Reset Password</a>
         </div>
         <p style="color:#777;font-size:13px;">This link will expire in <strong>15 minutes</strong> for security reasons.</p>
         <p style="color:#777;font-size:12px;">If you did not request a password reset, you can safely ignore this email.</p>
@@ -44,4 +44,4 @@ $PASSWORD_CHANGED_EMAIL_TEMPLATE =
         <p style="font-size:11px;color:#999;">WLMS Support<br>This is an automated message, please do not reply.
         </p>
     </div>
-</div>';
+</div>'; //{{name}}

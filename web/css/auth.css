@@ -1,0 +1,212 @@
+:root {
+    --bg1: #0f172a;
+    --bg2: #020617;
+    --bg3: #70707258;
+    --card: rgba(255, 255, 255, 0.05);
+    --border: rgba(255, 255, 255, 0.12);
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --primary: #8b5cf6;
+    --primary-fade: #5a3d9e;
+    --secondary: #22d3ee;
+    --secondary-fade: #1e9bbd;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', sans-serif;
+}
+
+body {
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background:
+        radial-gradient(circle at 20% 20%, rgba(139, 92, 246, 0.25), transparent 40%),
+        radial-gradient(circle at 80% 80%, rgba(34, 211, 238, 0.2), transparent 40%),
+        linear-gradient(135deg, var(--bg1), var(--bg2));
+    color: var(--text);
+}
+
+.container {
+    width: 100%;
+    max-width: 420px;
+    padding: 30px;
+    border-radius: 20px;
+    background: var(--card);
+    backdrop-filter: blur(25px);
+    border: 1px solid var(--border);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+}
+
+.title {
+    text-align: center;
+    background: linear-gradient(90deg, #a78bfa, #22d3ee);
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 30px;
+}
+
+.tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 25px;
+}
+
+.tab {
+    flex: 1;
+    padding: 10px;
+    border: none;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    font-weight: 600;
+    transition: .3s;
+}
+
+.tab.active {
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: #fff;
+    box-shadow: 0 10px 25px rgba(139, 92, 246, 0.4);
+}
+
+.panel {
+    display: none;
+}
+
+.panel.active {
+    display: block;
+}
+
+.field {
+    position: relative;
+    margin-bottom: 18px;
+}
+
+.field input {
+    width: 100%;
+    padding: 14px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text);
+    outline: none;
+}
+
+.field label {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    font-size: 14px;
+    pointer-events: none;
+    transition: .25s;
+    background: transparent;
+}
+
+.field input:focus {
+    border-color: var(--secondary);
+    box-shadow: 0 0 0 3px rgba(198, 245, 252, 0.15);
+}
+
+.field input:focus+label,
+.field input:not(:placeholder-shown)+label {
+    top: -8px;
+    font-size: 11px;
+    background: var(--bg3);
+    padding: 0 6px;
+    color: #67e8f9;
+}
+
+.btn {
+    width: 100%;
+    padding: 13px;
+    border: none;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--primary), var(--secondary));
+    color: #fff;
+    font-weight: bold;
+    cursor: pointer;
+    transition: .3s;
+}
+
+.fade {
+    background: linear-gradient(135deg, var(--primary-fade), var(--secondary-fade)) !important;
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 15px 30px rgba(139, 92, 246, 0.4);
+}
+
+.link {
+    display: block;
+    text-align: right;
+    margin: 10px 0;
+    font-size: 13px;
+    color: #67e8f9;
+    cursor: pointer;
+}
+
+.pass-toggle {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    font-size: 12px;
+    color: #94a3b8;
+}
+
+.cf-turnstile {
+    margin: 20px 0 20px 0;
+}
+
+#toastBox {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 9999;
+}
+
+.toast {
+    min-width: 250px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    color: #fff;
+    font-size: 13px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    animation: slideIn 0.3s ease;
+}
+
+.toast.success {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+}
+
+.toast.error {
+    background: linear-gradient(135deg, #ef4444, #b91c1c);
+}
+
+.toast.info {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
