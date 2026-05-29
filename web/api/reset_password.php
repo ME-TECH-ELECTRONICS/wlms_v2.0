@@ -26,7 +26,7 @@ if (empty($token) || empty($password) || empty($confirmPassword) || empty($captc
     ], 400);
 }
 
-if(validateCaptcha($captcha, $CAPTCHA_SECRET) === false) {
+if(!validateCaptcha($captcha, $CAPTCHA_SECRET)) {
     simpleResponse([
         "success" => false,
         "message" => "Captcha validation failed"
@@ -90,10 +90,10 @@ try {
         [$reset["name"], $DOMAIN_NAME],
         $PASSWORD_CHANGED_EMAIL_TEMPLATE
     );
-    sendMail($EMAIL_API_KEY, $reset["email"], "Password Changed", $reset["name"], $emailContent);
+    sendMail($EMAIL_API_KEY, $reset["email"], $reset["name"], "Password Changed", $emailContent);
     simpleResponse([
         "success" => true,
-        "message" => "Password changed successfully"
+        "message" => "Password changed successfully. Redirecting to login..."
     ]);
 
 } catch (Exception $e) {

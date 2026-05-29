@@ -215,7 +215,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 simpleResponse([
                     'success' => true,
-                    'message' => 'Login successful'
+                    'message' => 'Login successful',
+                    'devices' => null
                 ]);
             }
             $fetchUser->close();

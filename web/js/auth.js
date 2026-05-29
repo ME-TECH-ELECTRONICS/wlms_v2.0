@@ -22,6 +22,7 @@ $(document).ready(function () {
     });
 
     function showMsg(message, type = 'success') {
+        console.log(type.toUpperCase() + ': ' + message);
         let toast = $(`<div class="toast ${type}">${message}</div>`);
         $("#toastBox").append(toast);
         setTimeout(() => {
@@ -49,27 +50,17 @@ $(document).ready(function () {
     }
 
     async function apiRequest({ url, method = "GET", data = null, timeout = 5000 }) {
-        try {
-            const options = {
-                url,
-                method,
-                timeout,
-                dataType: "json"
-            };
-
-            if (data !== null) {
-                options.contentType = "application/json";
-                options.data = JSON.stringify(data);
-            }
-            return await $.ajax(options);
-        } catch (xhr) {
-            if (xhr.status === 429) {
-                showMsg(xhr.responseJSON?.message || 'Too many requests. Please try again later.', 'error');
-                return;
-            }
-            console.error("API request error:", xhr);
-            throw xhr;
+        const options = {
+            url,
+            method,
+            timeout,
+            dataType: "json"
+        };
+        if (data !== null) {
+            options.contentType = "application/json";
+            options.data = JSON.stringify(data);
         }
+        return await $.ajax(options);
     }
 
     $('input[type=email]').on('input', function (e) {
@@ -126,7 +117,11 @@ $(document).ready(function () {
             });
             if (res.success) {
                 showMsg('Login successful. Redirecting...', 'success');
-                if (res.devices) localStorage.setItem('deviceId', res.devices);
+                if (res.devices) { 
+                    localStorage.setItem('deviceId', res.devices);
+                } else {
+                    localStorage.removeItem('deviceId');
+                }
                 $('#loginForm')[0].reset();
                 setTimeout(() => location.href = "/dashboard", 2000);
             } else {
@@ -209,7 +204,7 @@ $(document).ready(function () {
                 data: { email, captcha }
             });
             if (res.success) {
-                showMsg('Reset link sent successfully', 'success');
+                showMsg(res.message, 'success');
                 $('#forgotForm')[0].reset();
             } else {
                 showMsg(res.message, 'error');
@@ -251,7 +246,7 @@ $(document).ready(function () {
                 data: { token, password: newPass, confirmPassword: confirmPass, captcha }
             });
             if (res.success) {
-                showMsg('Password reset successful. Redirecting to login...', 'success');
+                showMsg(res.message, 'success');
                 $('#passwordResetForm')[0].reset();
                 setTimeout(() => location.href = "/auth", 2000);
             } else {

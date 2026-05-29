@@ -1,22 +1,16 @@
 <?php
 require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/../api/config.php';
+require_once __DIR__ . '/../api/utility.php';
 
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
 
 header('Content-Type: application/json');
 
-// ✅ Helper
-function respond($data, $code = 200) {
-    http_response_code($code);
-    echo json_encode($data);
-    exit;
-}
-
 // Only POST allowed
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    respond(['success' => false, 'message' => 'Invalid request method'], 405);
+    simpleResponse(['success' => false, 'message' => 'Invalid request method'], 405);
 }
 
 // Start transaction
@@ -95,8 +89,6 @@ try {
             }
         }
     }
-
-    // Commit all changes
     $conn->commit();
 
 } catch (Exception $e) {
@@ -104,12 +96,11 @@ try {
     $conn->rollback();
 
     // Do NOT leak internal errors
-    respond([
+    simpleResponse([
         'success' => false,
         'message' => 'Logout failed'
     ], 500);
 }
-
 
 // =========================
 // 🍪 CLEAR COOKIES
@@ -130,7 +121,6 @@ clearCookie('auth_token', '/');
 // Clear refresh token (must match original path)
 clearCookie('refresh_token', '/api/refresh.php');
 
-
 // =========================
 // 🧹 DESTROY SESSION (if used)
 // =========================
@@ -143,7 +133,7 @@ if (session_status() === PHP_SESSION_ACTIVE) {
 // =========================
 // ✅ RESPONSE
 // =========================
-respond([
+simpleResponse([
     'success' => true,
     'message' => 'Logged out successfully'
 ]);

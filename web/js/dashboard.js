@@ -95,6 +95,8 @@ $(document).ready(function () {
         $("#saveSettings").on("click", saveSettings);
         $("#motorStartBtn").on("click", toggleMotor);
         $("#menu").on("click", toggleMobileMenu);
+        $("#deviceRefresh").on("click", loadDevice);
+        $("#logout").on("click", logout);
         $(".password-show").on("click", togglePasswordVisibility);
         $("#addDeviceBtn").on("click", addDevice);
         $(".nav button").on("click", switchPage);
@@ -196,6 +198,24 @@ $(document).ready(function () {
         setStatus(false);
         updateMotorState(false);
         showMsg("Device removed.");
+    }
+
+    async function logout() {
+        try {
+            const res = await apiRequest({
+                url: "/api/logout.php",
+                method: "POST"
+            });
+            if (res.success) {
+                localStorage.removeItem("deviceId");
+                location.href = "/auth";
+                
+            } else {
+                showMsg("Logout failed: " + res.message, "error");
+            }
+        } catch (err) {
+            console.error(err);
+        }
     }
 
     async function addDevice() {
