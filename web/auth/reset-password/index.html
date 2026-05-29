@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WLMS v1.0</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="/css/auth.css">
+</head>
+
+<body>
+    <div id="toastBox"></div>
+    <div class="container auth-form">
+        <h2 class="title">Reset Password</h2>
+
+        <form class="panel active" id="passwordResetForm">
+            <div class="field">
+                <input type="text" name="token" id="resetToken" placeholder=" " required disabled>
+                <label>Reset Token</label>
+            </div>
+            <div class="field">
+                <input type="password" name="new-password" id="newPass" placeholder=" " required>
+                <label>New Password</label>
+                <span class="pass-toggle" data="newPass">Show</span>
+            </div>
+            <div class="field">
+                <input type="password" name="confirm-password" id="confirmPass" placeholder=" " required>
+                <label>Confirm Password</label>
+                <span class="pass-toggle" data="confirmPass">Show</span>
+            </div>
+
+            <div class="cf-turnstile" data-sitekey="0x4AAAAAAC_SlmlB65j2jMo5" data-size="flexible"></div>
+            <button class="btn" id="resetBtn" type="submit">Reset Password</button>
+        </form>
+    </div>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    <script src="/js/jquery-3.7.1.min.js"></script>
+    <script src="/js/auth.js" defer></script>
+
+</body>
+
+</html>

@@ -17,11 +17,19 @@ $data = json_decode(file_get_contents("php://input"), true);
 $token = trim($data["token"] ?? "");
 $password = trim($data["password"] ?? "");
 $confirmPassword = trim($data["confirmPassword"] ?? "");
+$captcha = trim($data["captcha"] ?? "");
 
-if (empty($token) || empty($password) || empty($confirmPassword)) {
+if (empty($token) || empty($password) || empty($confirmPassword) || empty($captcha)) {
     simpleResponse([
         "success" => false,
         "message" => "All fields are required"
+    ], 400);
+}
+
+if(validateCaptcha($captcha, $CAPTCHA_SECRET) === false) {
+    simpleResponse([
+        "success" => false,
+        "message" => "Captcha validation failed"
     ], 400);
 }
 

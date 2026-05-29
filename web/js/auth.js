@@ -1,6 +1,54 @@
 $(document).ready(function () {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    if (token) {
+        $('#resetToken').val(token);
+    }
+    $(".tab, .switch").click(function () {
+        showPanel($(this).attr("data"));
+    });
 
-    async function apiRequest({ url, method = "GET", data = null, timeout = 5000, retry = true }) {
+    $(".pass-toggle").click(function () {
+        let id = $(this).attr("data");
+        let input = $("#" + id);
+
+        if (input.attr("type") === "password") {
+            input.attr("type", "text");
+            $(this).text("Hide");
+        } else {
+            input.attr("type", "password");
+            $(this).text("Show");
+        }
+    });
+
+    function showMsg(message, type = 'success') {
+        let toast = $(`<div class="toast ${type}">${message}</div>`);
+        $("#toastBox").append(toast);
+        setTimeout(() => {
+            toast.fadeOut(300, function () {
+                $(this).remove();
+            });
+        }, 3000);
+    }
+
+    function btnState(id, text, loading = false) {
+        const $btn = $("#" + id);
+        $btn.prop("disabled", loading);
+        if (loading) {
+            $btn.addClass("fade").html(`<i class="fa-solid fa-circle-notch fa-spin"></i> ${text}`);
+        } else {
+            $btn.removeClass("fade").text(text);
+        }
+    }
+    function showPanel(id) {
+        $(".panel").removeClass("active");
+        $("#" + id).addClass("active");
+
+        $(".tab").removeClass("active");
+        $('.tab[data="' + id + '"]').addClass("active");
+    }
+
+    async function apiRequest({ url, method = "GET", data = null, timeout = 5000 }) {
         try {
             const options = {
                 url,
@@ -15,24 +63,14 @@ $(document).ready(function () {
             }
             return await $.ajax(options);
         } catch (xhr) {
-            if (xhr.status === 401 && retry) {
-                const refreshed = await refreshAccessToken();
-                if (refreshed) {
-                    return await apiRequest({
-                        url,
-                        method,
-                        data,
-                        timeout,
-                        retry: false
-                    });
-                }
+            if (xhr.status === 429) {
+                showMsg(xhr.responseJSON?.message || 'Too many requests. Please try again later.', 'error');
+                return;
             }
+            console.error("API request error:", xhr);
             throw xhr;
         }
     }
-
-
-
 
     $('input[type=email]').on('input', function (e) {
         let value = $(this).val();
@@ -60,12 +98,12 @@ $(document).ready(function () {
         let value = $(this).val();
         value = value.replace(/[^a-zA-Z ]/g, '');
         value = value.replace(/\s+/g, ' ');
-        value = value.replace(/^\s/, '');
+        value = value.replace(/^\s+/, '');
         $(this).val(value);
     });
 
 
-    $('#loginForm').on('submit', function (e) {
+    $('#loginForm').on('submit', async function (e) {
         e.preventDefault();
 
         let email = $('#loginEmail').val().trim();
@@ -79,48 +117,33 @@ $(document).ready(function () {
         if (!captcha) {
             return showMsg('Complete captcha', 'error');
         }
-
-        
-
-        $.ajax({
-            url: "/api/login.php",
-            method: "POST",
-            contentType: "application/json",
-            dataType: "json",
-            data: JSON.stringify({ email, password, captcha }),
-
-            beforeSend: () => {
-                $("#loginBtn")
-                    .prop("disabled", true)
-                    .addClass('fade')
-                    .html('<i class="fa-solid fa-circle-notch fa-spin"></i> Logging in...');
-            },
-
-            success: function (res) {
-                if (res.success) {
-                    showMsg('Login successful. Redirecting...', 'success');
-                    if (res.devices) localStorage.setItem('deviceId', res.devices);
-
-                    $('#loginForm')[0].reset();
-                    setTimeout(() => location.href = "/dashboard", 2000);
-                } else {
-                    showMsg(res.message, 'error');
-                }
-                resetBtn('loginBtn', 'Login');
-                turnstile.reset();
-            },
-
-            error: (xhr) => {
-                resetBtn('loginBtn', 'Login');
-                turnstile.reset();
-
-                let msg = xhr.responseJSON?.message || 'Server error';
-                showMsg(msg, 'error');
+        btnState('loginBtn', 'Logging in...', true);
+        try {
+            const res = await apiRequest({
+                url: "/api/login.php",
+                method: "POST",
+                data: { email, password, captcha }
+            });
+            if (res.success) {
+                showMsg('Login successful. Redirecting...', 'success');
+                if (res.devices) localStorage.setItem('deviceId', res.devices);
+                $('#loginForm')[0].reset();
+                setTimeout(() => location.href = "/dashboard", 2000);
+            } else {
+                showMsg(res.message, 'error');
             }
-        });
+            btnState('loginBtn', 'Login');
+            turnstile.reset();
+        } catch (xhr) {
+            btnState('loginBtn', 'Login');
+            turnstile.reset();
+            let msg = xhr.responseJSON?.message || 'Server error';
+            showMsg(msg, 'error');
+            return;
+        }
     });
 
-    $('#registerForm').on('submit', function (e) {
+    $('#registerForm').on('submit', async function (e) {
         e.preventDefault();
 
         let name = $('#regName').val().trim();
@@ -135,52 +158,38 @@ $(document).ready(function () {
         if (pass1 !== pass2) {
             return showMsg('Passwords do not match', 'error');
         }
-        if (pass1.length < 6) {
-            return showMsg('Password must be at least 6 characters', 'error');
+        if (pass1.length < 8) {
+            return showMsg('Password must be at least 8 characters', 'error');
         }
         if (!captcha) {
             return showMsg('Complete captcha', 'error');
         }
-        $.ajax({
-            url: "/api/register.php",
-            method: "POST",
-            contentType: "application/json",
-            dataType: "json",
-            data: JSON.stringify({ name, email, password: pass1, captcha }),
-
-            beforeSend: () => {
-                $("#regBtn")
-                    .prop("disabled", true)
-                    .addClass('fade')
-                    .html('<i class="fa-solid fa-circle-notch fa-spin"></i> Registering...');
-            },
-
-            success: function (res) {
-                if (res.success) {
-                    showMsg('Registered successfully. Proceed to login', 'success');
-
-                    $('#registerForm')[0].reset();
-                    setTimeout(() => {
-                        $('.tab[data="loginForm"]').click();
-                    }, 1500);
-                } else {
-                    showMsg(res.message, 'error');
-                }
-                resetBtn('regBtn', 'Register');
-                turnstile.reset();
-            },
-
-            error: (xhr) => {
-                resetBtn('regBtn', 'Register');
-                turnstile.reset();
-
-                let msg = xhr.responseJSON?.message || 'Server error';
-                showMsg(msg, 'error');
+        btnState('regBtn', 'Registering...', true);
+        try {
+            const res = await apiRequest({
+                url: "/api/register.php",
+                method: "POST",
+                data: { name, email, password: pass1, captcha }
+            });
+            if (res.success) {
+                showMsg('Registered successfully. Proceed to login', 'success');
+                $('#registerForm')[0].reset();
+                setTimeout(() => { $('.tab[data="loginForm"]').click(); }, 1500);
+            } else {
+                showMsg(res.message, 'error');
             }
-        });
+            btnState('regBtn', 'Register');
+            turnstile.reset();
+        } catch (xhr) {
+            let msg = xhr.responseJSON?.message || 'Server error';
+            showMsg(msg, 'error');
+            btnState('regBtn', 'Register');
+            turnstile.reset();
+            return;
+        }
     });
 
-    $('#forgotForm').on('submit', function (e) {
+    $('#forgotForm').on('submit', async function (e) {
         e.preventDefault();
 
         let email = $('#forgotEmail').val().trim();
@@ -189,77 +198,73 @@ $(document).ready(function () {
             return showMsg('Enter email', 'error');
         }
 
-        // if (!captcha) {
-        //     return showMsg('Complete captcha', 'error');
-        // }
-
-        $.ajax({
-            url: "/api/request_password_reset.php",
-            method: "POST",
-            contentType: "application/json",
-            dataType: "json",
-            data: JSON.stringify({ email, captcha }),
-
-            beforeSend: () => $("#forgotBtn").prop("disabled", true).addClass('fade').html('<i class="fa-solid fa-circle-notch fa-spin fa-xl"></i>'),
-
-            success: function (res) {
-                if (res.success) {
-                    showMsg('Reset link sent successfully', 'success');
-                } else {
-                    $("#forgotBtn").prop("disabled", false).removeClass('fade').text('Send Reset Link');
-                    showMsg(res.message, 'error');
-                }
+        if (!captcha) {
+            return showMsg('Complete captcha', 'error');
+        }
+        btnState('forgotBtn', 'Sending...', true);
+        try {
+            const res = await apiRequest({
+                url: "/api/request_password_reset.php",
+                method: "POST",
+                data: { email, captcha }
+            });
+            if (res.success) {
+                showMsg('Reset link sent successfully', 'success');
                 $('#forgotForm')[0].reset();
-                turnstile.reset();
-            },
-
-            error: () => {
-                $("#forgotBtn").prop("disabled", false).removeClass('fade').text('Send Reset Link');
-                showMsg('Server error', 'error');
+            } else {
+                showMsg(res.message, 'error');
             }
-        });
-    });
-
-    function showPanel(id) {
-        $(".panel").removeClass("active");
-        $("#" + id).addClass("active");
-
-        $(".tab").removeClass("active");
-        $('.tab[data="' + id + '"]').addClass("active");
-    }
-
-    $(".tab, .switch").click(function () {
-        showPanel($(this).attr("data"));
-    });
-
-    $(".pass-toggle").click(function () {
-        let id = $(this).attr("data");
-        let input = $("#" + id);
-
-        if (input.attr("type") === "password") {
-            input.attr("type", "text");
-            $(this).text("Hide");
-        } else {
-            input.attr("type", "password");
-            $(this).text("Show");
+            btnState('forgotBtn', 'Send Reset Link');
+            turnstile.reset();
+        } catch (xhr) {
+            let msg = xhr.responseJSON?.message || 'Server error';
+            showMsg(msg, 'error');
+            btnState('forgotBtn', 'Send Reset Link');
+            turnstile.reset();
+            return;
         }
     });
 
+    $(document).on('submit', '#passwordResetForm', async function (e) {
+        e.preventDefault();
+        let token = $('#resetToken').val().trim();
+        let newPass = $('#newPass').val();
+        let confirmPass = $('#confirmPass').val();
+        let captcha = $('#passwordResetForm input[name="cf-turnstile-response"]').val();
+        if (!token || !newPass || !confirmPass) {
+            return showMsg('All fields required', 'error');
+        }
+        if (newPass !== confirmPass) {
+            return showMsg('Passwords do not match', 'error');
+        }
+        if (newPass.length < 8) {
+            return showMsg('Password must be at least 8 characters', 'error');
+        }
+        if (!captcha) {
+            return showMsg('Complete captcha', 'error');
+        }
+        btnState('resetBtn', 'Resetting...', true);
+        try {
+            const res = await apiRequest({
+                url: "/api/reset_password.php",
+                method: "POST",
+                data: { token, password: newPass, confirmPassword: confirmPass, captcha }
+            });
+            if (res.success) {
+                showMsg('Password reset successful. Redirecting to login...', 'success');
+                $('#passwordResetForm')[0].reset();
+                setTimeout(() => location.href = "/auth", 2000);
+            } else {
+                showMsg(res.message, 'error');
+            }
+            btnState('resetBtn', 'Reset Password');
+            turnstile.reset();
+        } catch (xhr) {
+            let msg = xhr.responseJSON?.message || 'Server error';
+            showMsg(msg, 'error');
+            btnState('resetBtn', 'Reset Password');
+            turnstile.reset();
+            return;
+        }
+    });
 });
-
-function showMsg(message, type = 'success') {
-    let toast = $(`<div class="toast ${type}">${message}</div>`);
-    $("#toastBox").append(toast);
-    setTimeout(() => {
-        toast.fadeOut(300, function () {
-            $(this).remove();
-        });
-    }, 3000);
-}
-
-function resetBtn(id, text) {
-    $("#" + id)
-        .prop("disabled", false)
-        .removeClass('fade')
-        .text(text);
-}
