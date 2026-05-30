@@ -509,7 +509,7 @@ tr:hover td {
     backdrop-filter: blur(14px);
 }
 
-#toastBox {
+/* #toastBox {
     position: fixed;
     top: 10px;
     right: 40px;
@@ -521,6 +521,15 @@ tr:hover td {
     padding: 12px 18px;
     border-radius: 14px;
     box-shadow: var(--shadow);
+} */
+#toastBox {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    z-index: 9999;
 }
 
 .toast {

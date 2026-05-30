@@ -209,7 +209,7 @@ $(document).ready(function () {
             if (res.success) {
                 localStorage.removeItem("deviceId");
                 location.href = "/auth";
-                
+
             } else {
                 showMsg("Logout failed: " + res.message, "error");
             }
@@ -228,7 +228,7 @@ $(document).ready(function () {
             const res = await apiRequest({
                 url: "/api/add_device.php",
                 method: "POST",
-                data: { newDeviceId }
+                data: { deviceId: newDeviceId }
             });
             if (res.success) {
                 localStorage.setItem("deviceId", newDeviceId);
@@ -247,16 +247,17 @@ $(document).ready(function () {
     async function loadDevice() {
         try {
             const res = await apiRequest({
-                url: "/api/get_devices.php"
+                url: "/api/get_device.php"
             });
-            if (res.success && res.data) {
-                deviceId = res.data.id;
+            if (res.success && res.device) {
+                deviceId = res.device;
                 localStorage.setItem("deviceId", deviceId);
                 renderDevice(deviceId);
                 await refreshPage();
             } else {
                 $deviceList.html(NO_DEVICE_HTML);
             }
+            showMsg("Device list updated.");
         } catch (err) {
             console.error(err);
             $deviceList.html(NO_DEVICE_HTML);
@@ -519,5 +520,15 @@ $(document).ready(function () {
 
         const diffDay = Math.floor(diffHour / 24);
         return `${diffDay} day${diffDay !== 1 ? "s" : ""} ago`;
+    }
+    function showMsg(message, type = 'success') {
+        console.log($("#toastBox").length);
+        let toast = $(`<div class="toast ${type}">${message}</div>`);
+        $("#toastBox").append(toast);
+        setTimeout(() => {
+            toast.fadeOut(300, function () {
+                $(this).remove();
+            });
+        }, 3000);
     }
 });

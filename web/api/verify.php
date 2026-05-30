@@ -54,7 +54,7 @@ $stmt->execute();
 if ($stmt->affected_rows > 0) {
     echo json_encode([
         'success' => true,
-        'message' => 'Account verified successfully'
+        'message' => 'Account verified successfully. You can now log in.'
     ]);
 } else {
     echo json_encode([
