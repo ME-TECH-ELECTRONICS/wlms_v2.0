@@ -40,12 +40,11 @@ $(document).ready(function () {
             desc: EVENT_REASONS[reason] || "Unknown event"
         };
     }
-    console.log(decodeEvent(0b00101011)); // Example usage
+    console.log(decodeEvent(0b01101011)); // Example usage
     function renderLogs(logs) {
         const query = ($logSearch.val() || "").toLowerCase();
         const filter = $logFilter.val();
-        const filteredLogs = logs
-            .filter(item => {
+        const filteredLogs = logs.filter(item => {
                 const searchText = [
                     item.date ?? "",
                     item.type ?? "",
@@ -53,12 +52,9 @@ $(document).ready(function () {
                     item.status ?? ""
                 ].join(" ").toLowerCase();
                 const matchesQuery = searchText.includes(query);
-                const matchesFilter =
-                    filter === "all" ||
-                    (item.type ?? "").toLowerCase() === filter.toLowerCase();
+                const matchesFilter = filter === "all" || (item.type ?? "").toLowerCase() === filter.toLowerCase();
                 return matchesQuery && matchesFilter;
-            })
-            .sort((a, b) => {
+            }).sort((a, b) => {
                 const dateA = a.timestamp ?? new Date((a.date ?? "").replace(" ", "T")).getTime();
                 const dateB = b.timestamp ?? new Date((b.date ?? "").replace(" ", "T")).getTime();
                 return logNewestFirst ? dateB - dateA : dateA - dateB;
@@ -75,17 +71,9 @@ $(document).ready(function () {
             );
             return;
         }
-
         const rows = [];
-
         for (const item of filteredLogs) {
-
-            const statusClass =
-                item.status === "Success" ? "good" :
-                    item.status === "Resolved" ? "neutral" :
-                        item.status === "Blocked" ? "danger" :
-                            "warn";
-
+            const statusClass = item.status === "Success" ? "good" : item.status === "Resolved" ? "neutral" : item.status === "Blocked" ? "danger" : "warn";
             rows.push(
                 $("<tr>")
                     .append($("<td>").text(item.date ?? ""))
@@ -100,37 +88,27 @@ $(document).ready(function () {
                     )
             );
         }
-
         $logBody.append(rows);
     }
 
     function initializeLogs(logs) {
-
-        // Pre-compute timestamps once
         logs.forEach(log => {
             log.timestamp = new Date(
                 (log.date ?? "").replace(" ", "T")
             ).getTime();
         });
-
         renderLogs(logs);
-
         $logSearch.on("input", () => renderLogs(logs));
-
         $logFilter.on("change", () => renderLogs(logs));
-
         $sortBtn.on("click", function () {
             logNewestFirst = !logNewestFirst;
-
             $(this).text(
                 `Sort: ${logNewestFirst ? "Newest" : "Oldest"}`
             );
-
             renderLogs(logs);
         });
     }
 
-    // Example
     const logs = [
         { date: '2026-04-17 08:10:21', type: 'Motor', desc: 'Motor started automatically at low tank level.', status: 'Success' },
         { date: '2026-04-17 08:22:49', type: 'Alarm', desc: 'Voltage dip detected; controller kept motor running after recovery.', status: 'Resolved' },

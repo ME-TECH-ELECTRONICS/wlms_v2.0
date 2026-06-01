@@ -8,6 +8,7 @@ $(document).ready(function () {
     let lastSeen = null;
     let refreshBusy = false;
     let refreshPromise = null;
+    let logNewestFirst = true;
 
     const GAUGE_CIRCUMFERENCE = 2 * Math.PI * 78;
     const GAUGE_CIRCUMFERENCE_FIXED = GAUGE_CIRCUMFERENCE.toFixed(2);
@@ -22,13 +23,39 @@ $(document).ready(function () {
     const $deviceList = $("#deviceList");
     const $toastBox = $("#toastBox");
     const $clockPill = $("#clockPill");
+    const $logBody = $("#logBody");
+    const $logSearch = $("#logSearch");
+    const $logFilter = $("#logFilter");
+    const $sortBtn = $("#sortBtn");
 
     // =========================================================
     // CONSTANTS
     // =========================================================
 
     const NO_DEVICE_HTML = `<p style="color:#95a8c7;">No devices Found. Please refresh the list or add a new device.</p>`;
-
+    const EVENT_TYPES = {
+        0: "Normal",
+        1: "Fault",
+        2: "Power",
+        3: "Manual",
+        4: "Settings",
+    };
+    const EVENT_REASONS = {
+        1: "Motor turned on. Normal operation.",
+        2: "Motor turned off. Normal operation.",
+        3: "Motor turned off. Tank full detected.",
+        4: "Motor stopped. Low voltage detected.",
+        5: "Motor stopped. Dry run detected.",
+        6: "Sensor communication lost.",
+        7: "Maximum motor runtime exceeded.",
+        8: "Power restored. System resumed operation.",
+        9: "Power outage detected. Motor stopped.",
+        10: "Controller settings updated.",
+        11: "Motor turned on manually.",
+        12: "Motor turned off manually.",
+        13: "System mode changed to manual.",
+        14: "System mode changed to automatic.",
+    };
     const inputs = [
         { id: "startThreshold", min: 1, max: 100, regex: /[^0-9]/g, type: "number" },
         { id: "stopThreshold", min: 1, max: 100, regex: /[^0-9]/g, type: "number" },
@@ -80,7 +107,7 @@ $(document).ready(function () {
         }
 
         updateClock();
-
+        initializeLogs();
         setInterval(updateClock, 1000);
         setInterval(updateLastSeenTimer, 1000);
         setInterval(refreshPage, 5000);
@@ -464,6 +491,84 @@ $(document).ready(function () {
         `);
     }
 
+    function renderLogs(logs) {
+        const query = ($logSearch.val() || "").toLowerCase();
+        const filter = $logFilter.val();
+        const filteredLogs = logs.filter(item => {
+            const searchText = [
+                item.date ?? "",
+                item.type ?? "",
+                item.desc ?? "",
+                item.status ?? ""
+            ].join(" ").toLowerCase();
+            const matchesQuery = searchText.includes(query);
+            const matchesFilter = filter === "all" || (item.type ?? "").toLowerCase() === filter.toLowerCase();
+            return matchesQuery && matchesFilter;
+        }).sort((a, b) => {
+            const dateA = a.timestamp ?? new Date((a.date ?? "").replace(" ", "T")).getTime();
+            const dateB = b.timestamp ?? new Date((b.date ?? "").replace(" ", "T")).getTime();
+            return logNewestFirst ? dateB - dateA : dateA - dateB;
+        });
+        $logBody.empty();
+        if (!filteredLogs.length) {
+            $logBody.append(
+                $("<tr>").append(
+                    $("<td>")
+                        .attr("colspan", 4)
+                        .css("color", "#95a8c7")
+                        .text("No log entries found.")
+                )
+            );
+            return;
+        }
+        const rows = [];
+        for (const item of filteredLogs) {
+            const statusClass = item.status === "Success" ? "good" : item.status === "Resolved" ? "neutral" : item.status === "Blocked" ? "danger" : "warn";
+            rows.push(
+                $("<tr>")
+                    .append($("<td>").text(item.date ?? ""))
+                    .append($("<td>").text(item.type ?? ""))
+                    .append($("<td>").text(item.desc ?? ""))
+                    .append(
+                        $("<td>").append(
+                            $("<span>")
+                                .addClass(`badge ${statusClass}`)
+                                .text(item.status ?? "")
+                        )
+                    )
+            );
+        }
+        $logBody.append(rows);
+    }
+
+    async function initializeLogs() {
+        try {
+            const logs = await apiRequest({
+                url: `/api/logs.php?deviceId=${deviceId}`,
+                method: "GET",
+            });
+
+            logs.forEach(log => {
+                log.timestamp = new Date(
+                    (log.date ?? "").replace(" ", "T")
+                ).getTime();
+            });
+            renderLogs(logs);
+            $logSearch.on("input", () => renderLogs(logs));
+            $logFilter.on("change", () => renderLogs(logs));
+            $sortBtn.on("click", function () {
+                logNewestFirst = !logNewestFirst;
+                $(this).text(
+                    `Sort: ${logNewestFirst ? "Newest" : "Oldest"}`
+                );
+                renderLogs(logs);
+            });
+        } catch (error) {
+            console.error("Error fetching logs:", error);
+        }
+
+    }
+
     // =========================================================
     // UTILITIES
     // =========================================================
@@ -530,5 +635,13 @@ $(document).ready(function () {
                 $(this).remove();
             });
         }, 3000);
+    }
+    function decodeEvent(event) {
+        const type = (event >> 5) & 0x07;
+        const reason = event & 0x1F;
+        return {
+            type: EVENT_TYPES[type] || "Unknown",
+            desc: EVENT_REASONS[reason] || "Unknown event"
+        };
     }
 });
