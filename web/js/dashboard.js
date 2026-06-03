@@ -543,11 +543,11 @@ $(document).ready(function () {
 
     async function initializeLogs() {
         try {
-            const logs = await apiRequest({
-                url: `/api/logs.php?deviceId=${deviceId}`,
+            const res = await apiRequest({
+                url: `/api/logs.php?id=${deviceId}`,
                 method: "GET",
             });
-
+            let logs = res.logs || [];
             logs.forEach(log => {
                 log.timestamp = new Date(
                     (log.date ?? "").replace(" ", "T")

@@ -11,9 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === "GET") {
     $device_id = $_GET['id'];
     $auth = authenticate();
     if (!$auth['success']) {
-        http_response_code($auth['code']);
-        echo json_encode($auth);
-        exit;
+        simpleResponse(["success" => false, "message" => $auth['message']], $auth['code']);
     }
 
     $user_id = $auth['user']['id'];

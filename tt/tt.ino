@@ -1,41 +1,56 @@
 #include <SPI.h>
 #include <LoRa.h>
 
-//define the pins used by the transceiver module
-#define ss 5
-#define rst 15
-#define dio0 2
-struct RxData {
-    int distance;
-};
+
 void setup() {
-  //initialize Serial Monitor
   Serial.begin(115200);
-  while (!Serial);
-  Serial.println("LoRa Receiver");
-
-  //setup LoRa transceiver module
-  LoRa.setPins(ss, rst, dio0);
-
-  while (!LoRa.begin(433E6)) {
-    Serial.println(".");
-    delay(500);
+  LoRa.setPins(10, 9, 2);
+  if (!LoRa.begin(433E6)) {  // Change frequency if needed (e.g., 868E6 / 915E6)
+    Serial.println("LoRa init failed!");
+    while (1)
+      ;
   }
+
+  LoRa.enableCrc();
+  // Set code word
   LoRa.setSyncWord(0xF3);
-  Serial.println("LoRa Initializing OK!");
+  Serial.println("LoRa Transmitter Started");
+}
+
+struct SensorPacket {
+  uint8_t level;
+  int8_t temp;
+  uint8_t checksum;
+};
+
+void sendSensorData(uint8_t level, int8_t temp) {
+
+  SensorPacket pkt;
+
+  pkt.level = level;
+  pkt.temp = temp;
+  pkt.checksum = pkt.level ^ pkt.temp ^ 0xA5;
+
+  LoRa.beginPacket();
+  LoRa.write((uint8_t*)&pkt, sizeof(pkt));
+  LoRa.endPacket();
+
+  // Debug
+  Serial.print("Sent -> Level: ");
+  Serial.print(level);
+  Serial.print("% | Temp: ");
+  Serial.print(temp);
+  Serial.println(" C");
 }
 
 void loop() {
-  // try to parse packet
-  int packetSize = LoRa.parsePacket();
-  if (packetSize) {
-    RxData receivedData;
+  for (uint8_t i = 100; i > 0; i--) {
+    sendSensorData(i, 35);
+    delay(500);
+  }
 
-    // Read the incoming bytes into the struct
-    LoRa.readBytes((uint8_t*)&receivedData, sizeof(receivedData));
-
-    // Print the received distance value
-    Serial.print("Received distance: ");
-    Serial.println(receivedData.distance);
+  for (uint8_t j = 1; j <= 100; j++) {
+    sendSensorData(j, 35);
+    delay(500);
   }
 }
