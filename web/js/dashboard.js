@@ -34,11 +34,11 @@ $(document).ready(function () {
 
     const NO_DEVICE_HTML = `<p style="color:#95a8c7;">No devices Found. Please refresh the list or add a new device.</p>`;
     const EVENT_TYPES = {
-        0: "Normal",
-        1: "Fault",
-        2: "Power",
-        3: "Manual",
-        4: "Settings",
+        0: { name: "Normal", color: "good" },
+        1: { name: "Fault", color: "danger" },
+        2: { name: "Power", color: "warn" },
+        3: { name: "Manual", color: "info" },
+        4: { name: "Settings", color: "neutral" }
     };
     const EVENT_REASONS = {
         1: "Motor turned on. Normal operation.",
@@ -523,19 +523,11 @@ $(document).ready(function () {
         }
         const rows = [];
         for (const item of filteredLogs) {
-            const statusClass = item.status === "Success" ? "good" : item.status === "Resolved" ? "neutral" : item.status === "Blocked" ? "danger" : "warn";
             rows.push(
                 $("<tr>")
                     .append($("<td>").text(item.date ?? ""))
-                    .append($("<td>").text(item.type ?? ""))
-                    .append($("<td>").text(item.desc ?? ""))
-                    .append(
-                        $("<td>").append(
-                            $("<span>")
-                                .addClass(`badge ${statusClass}`)
-                                .text(item.status ?? "")
-                        )
-                    )
+                    .append($("<td>").append($("<span>").addClass(`badge ${item.color}`).text(item.type)))
+                    .append($("<td>").text(item.desc))
             );
         }
         $logBody.append(rows);
@@ -547,12 +539,8 @@ $(document).ready(function () {
                 url: `/api/logs.php?id=${deviceId}`,
                 method: "GET",
             });
-            let logs = res.logs || [];
-            logs.forEach(log => {
-                log.timestamp = new Date(
-                    (log.date ?? "").replace(" ", "T")
-                ).getTime();
-            });
+            let logs = transformLogs(res.logs || []);
+            console.log(logs);
             renderLogs(logs);
             $logSearch.on("input", () => renderLogs(logs));
             $logFilter.on("change", () => renderLogs(logs));
@@ -626,6 +614,7 @@ $(document).ready(function () {
         const diffDay = Math.floor(diffHour / 24);
         return `${diffDay} day${diffDay !== 1 ? "s" : ""} ago`;
     }
+
     function showMsg(message, type = 'success') {
         console.log($("#toastBox").length);
         let toast = $(`<div class="toast ${type}">${message}</div>`);
@@ -636,12 +625,25 @@ $(document).ready(function () {
             });
         }, 3000);
     }
+
     function decodeEvent(event) {
         const type = (event >> 5) & 0x07;
         const reason = event & 0x1F;
+
         return {
-            type: EVENT_TYPES[type] || "Unknown",
+            type: EVENT_TYPES[type]?.name || "Unknown",
+            color: EVENT_TYPES[type]?.color || "neutral",
             desc: EVENT_REASONS[reason] || "Unknown event"
         };
+    }
+    function transformLogs(rawLogs) {
+        return rawLogs.map(log => ({
+            id: log.id,
+            date: log.timestamp,
+            timestamp: new Date(
+                log.timestamp.replace(" ", "T")
+            ).getTime(),
+            ...decodeEvent(log.event_type)
+        }));
     }
 });

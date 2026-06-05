@@ -145,29 +145,27 @@
                 <div class="panel-header">
                     <div>
                         <h3>Action Logs</h3>
-                        <small>Sorted by date, search and filter activity here</small>
                     </div>
-                    <span class="badge neutral">Audit trail</span>
                 </div>
                 <div class="log-toolbar">
                     <input class="input" id="logSearch" type="search" placeholder="Search logs..." />
                     <select class="select" id="logFilter">
                         <option value="all">All events</option>
-                        <option value="motor">Motor</option>
+                        <option value="normal">Normal</option>
                         <option value="settings">Settings</option>
-                        <option value="security">Security</option>
-                        <option value="alarm">Alarm</option>
+                        <option value="manual">Manual</option>
+                        <option value="power">Power</option>
+                        <option value="fault">Fault</option>
                     </select>
                     <button class="btn secondary" id="sortBtn">Sort: Newest</button>
                 </div>
-                <div style="overflow:auto;">
+                <div style="overflow:auto;" class="log-table">
                     <table>
                         <thead>
                             <tr>
                                 <th data-sort="date">Date/Time</th>
                                 <th data-sort="type">Type</th>
                                 <th>Description</th>
-                                <th data-sort="status">Status</th>
                             </tr>
                         </thead>
                         <tbody id="logBody"></tbody>
