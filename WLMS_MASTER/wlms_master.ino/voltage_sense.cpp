@@ -170,8 +170,10 @@ void readVoltageTask(void *pv) {
         int voltage = (int)(filtered + 0.5f);
         if (voltage < 100) voltage = 0;
         if (xSemaphoreTake(sysMutex, pdMS_TO_TICKS(5))) {
-          sys.voltage = voltage;
-          sys.isMainsCut = (voltage == 0) ? true : false;
+          sys.voltage = 230;
+          sys.isMainsCut = false;
+          // sys.voltage = voltage;
+          // sys.isMainsCut = (voltage == 0) ? true : false;
           xSemaphoreGive(sysMutex);
         } else {
           continue;
