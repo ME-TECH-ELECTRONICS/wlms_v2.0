@@ -105,6 +105,13 @@ void readADC(void *pv) {
 
   while (1) {
 
+    static uint32_t lastRun = 0;
+    uint32_t wnow = millis();
+    if ((wnow - lastRun) > 50) {
+      Serial.printf("read ADC delayed by %lu ms\n", wnow - lastRun);
+    }
+    lastRun = wnow;
+
     if (adc_continuous_read(adc_handle, buffer, BUFFER_SIZE, &length, 1000) == ESP_OK) {
 
       if (length < sizeof(adc_digi_output_data_t))
@@ -133,7 +140,12 @@ void readVoltageTask(void *pv) {
   int requiredSamples = (SAMPLE_RATE / MAINS_FREQ) * 10;  // 10 cycles
 
   while (1) {
-
+    static uint32_t qlastRun = 0;
+    uint32_t awnow = millis();
+    if ((awnow - qlastRun) > 50) {
+      Serial.printf("Read Voltage task delayed by %lu ms\n", awnow - qlastRun);
+    }
+    qlastRun = awnow;
     int raw;
 
     if (ringPop(raw)) {
@@ -156,7 +168,7 @@ void readVoltageTask(void *pv) {
         filtered = 0.8f * filtered + 0.2f * v;
 
         int voltage = (int)(filtered + 0.5f);
-        if(voltage < 100) voltage = 0; 
+        if (voltage < 100) voltage = 0;
         if (xSemaphoreTake(sysMutex, pdMS_TO_TICKS(5))) {
           sys.voltage = voltage;
           sys.isMainsCut = (voltage == 0) ? true : false;

@@ -66,6 +66,12 @@ void control_task(void* pv) {
       local.fault = true;
       logNeeded = true;
       logMsg = "FAULT: SENSOR TIMEOUT";
+      uint32_t diff = now - local.lastLevelUpdate;
+
+      if (diff > SENSOR_TIMEOUT_MS) {
+
+        // Serial.printf("SENSOR TIMEOUT now=%lu last=%lu diff=%lu\n", now, local.lastLevelUpdate, diff);
+      }
     }
 
     // Motor runtime limit
@@ -217,9 +223,21 @@ void control_task(void* pv) {
         break;
     }
 
+    // Serial.printf("FSM write: state=%d motor=%d level=%d log=%s\n ", local.state, local.motor, local.level, logMsg);
+
     // -------- STEP 3: WRITE BACK SHARED STATE --------
     xSemaphoreTake(sysMutex, portMAX_DELAY);
-    sys = local;
+
+    sys.motor = local.motor;
+    sys.state = local.state;
+    sys.motorStartTime = local.motorStartTime;
+    sys.fault = local.fault;
+    sys.dryRunLockUntil = local.dryRunLockUntil;
+    sys.lastDryCheckTime = local.lastDryCheckTime;
+    sys.lastDryCheckLevel = local.lastDryCheckLevel;
+    sys.dryRunRetries = local.dryRunRetries;
+    sys.lastRetryTime = local.lastRetryTime;
+
     xSemaphoreGive(sysMutex);
 
     // -------- STEP 4: HARDWARE CONTROL (NO MUTEX) --------
@@ -232,6 +250,6 @@ void control_task(void* pv) {
       Serial.printf("L:%d V:%d Vol:%d Motor:%d WiFi:%d Mains:%d Msg: %s\n", local.level, local.voltage, local.level * 10, local.motor, local.isWifiConnected, local.isMainsCut, logMsg);
       prevLvl = local.level;
     }
-    vTaskDelay(pdMS_TO_TICKS(5));
+    vTaskDelay(pdMS_TO_TICKS(50));
   }
 }

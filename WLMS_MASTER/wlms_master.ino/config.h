@@ -35,8 +35,7 @@ constexpr uint8_t DRYRUN_MAX_RETRIES = 2;
 constexpr uint32_t SENSOR_TIMEOUT_MS = 5000UL;
 constexpr uint32_t MAX_MOTOR_RUNTIME_MS = (10UL * 60UL * 1000UL);
 
-constexpr char const* ACCESS_POINT_SSID = "METECH";
-constexpr char const* ACCESS_POINT_PASSWORD = "METECH@3152";
+
 // constexpr char const* ACCESS_POINT_SSID = "Wokwi-GUEST";
 // constexpr char const* ACCESS_POINT_PASSWORD = "";
 

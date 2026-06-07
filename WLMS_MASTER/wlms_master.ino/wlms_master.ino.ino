@@ -74,9 +74,9 @@ void setup() {
   digitalWrite(MODE_LED_RED, LOW);
   digitalWrite(MODE_LED_GREEN, HIGH);
 
-  initDisplay();
-  initADC();
-  welcomeScreen();
+  // initDisplay();
+  // initADC();
+  // welcomeScreen();
   delay(3000);
   uint32_t now = millis();
   sys.mode = MODE_AUTO;
@@ -121,15 +121,15 @@ void setup() {
   i2cMutex = xSemaphoreCreateMutex();
   // logQueue = xQueueCreate(10, sizeof(LogMsg));
   // -------- Core 1 (REAL-TIME) --------
-  xTaskCreatePinnedToCore(control_task, "Control", 2048, NULL, 5, NULL, 1);
-  xTaskCreatePinnedToCore(loraTask, "LoRa", 3072, NULL, 4, NULL, 1);
-  xTaskCreatePinnedToCore(readADC, "ADC Task", 2048, NULL, 3, NULL, 1);
-  xTaskCreatePinnedToCore(readVoltageTask, "RMS Task", 2048, NULL, 2, NULL, 1);
-  xTaskCreatePinnedToCore(displayTask, "Display", 3072, NULL, 1, NULL, 1);
+  // xTaskCreatePinnedToCore(control_task, "Control", 2048, NULL, 4, NULL, 1);
+  xTaskCreatePinnedToCore(loraTask, "LoRa", 3072, NULL, 5, NULL, 1);
+  // xTaskCreatePinnedToCore(readADC, "ADC Task", 2048, NULL, 3, NULL, 1);
+  // xTaskCreatePinnedToCore(readVoltageTask, "RMS Task", 2048, NULL, 2, NULL, 1);
+  // xTaskCreatePinnedToCore(displayTask, "Display", 3072, NULL, 1, NULL, 0);
 
   // -------- Core 0 (NETWORK) --------
   // xTaskCreatePinnedToCore(wifiTask, "WiFi", 4096, NULL, 2, NULL, 0);
-  xTaskCreatePinnedToCore(monitorTask, "Monitor", 2048, NULL, 1, NULL, 0);
+  // xTaskCreatePinnedToCore(monitorTask, "Monitor", 2048, NULL, 1, NULL, 0);
 }
 //
 void loop() {

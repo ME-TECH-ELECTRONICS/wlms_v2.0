@@ -11,9 +11,13 @@ void setup() {
       ;
   }
 
-  LoRa.enableCrc();
-  // Set code word
   LoRa.setSyncWord(0xF3);
+  LoRa.enableCrc();
+  LoRa.setSpreadingFactor(7);
+  LoRa.setSignalBandwidth(125E3);
+  LoRa.setCodingRate4(5);
+  LoRa.setPreambleLength(8);
+  // Set code word
   Serial.println("LoRa Transmitter Started");
 }
 
@@ -44,13 +48,13 @@ void sendSensorData(uint8_t level, int8_t temp) {
 }
 
 void loop() {
-  for (uint8_t i = 100; i > 0; i--) {
+  for (uint8_t i = 100; i > 8; i--) {
     sendSensorData(i, 35);
-    delay(500);
+    delay(1000);
   }
 
-  for (uint8_t j = 1; j <= 100; j++) {
+  for (uint8_t j = 8; j <= 100; j++) {
     sendSensorData(j, 35);
-    delay(500);
+    delay(1000);
   }
 }
