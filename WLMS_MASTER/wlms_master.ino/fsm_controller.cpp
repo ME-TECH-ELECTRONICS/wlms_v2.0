@@ -187,6 +187,7 @@ void control_task(void* pv) {
           if ((now - local.lastLevelUpdate) < SENSOR_TIMEOUT_MS && local.voltage >= VOLTAGE_MIN) {
             local.state = STATE_WAIT_LOW;
             local.fault = false;
+            local.motor = false;
             faultTime = 0;
             log_event("AUTO RECOVERY");
           }
