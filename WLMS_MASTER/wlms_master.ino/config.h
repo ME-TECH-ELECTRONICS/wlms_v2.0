@@ -1,3 +1,4 @@
+#include "pins_arduino.h"
 #include "driver/adc_types_legacy.h"
 #include <stdint.h>
 #pragma once
@@ -6,11 +7,11 @@ constexpr const char* VERSION = "1.0.0";
 
 // Pins
 constexpr uint8_t MOTOR = 15;
-constexpr uint8_t MOTOR_STATUS_LED = 33;
+constexpr uint8_t MOTOR_STATUS_LED = 13;
 constexpr uint8_t MODE_LED_RED = 25;
 constexpr uint8_t MODE_LED_GREEN = 26;
-constexpr uint8_t MODE_BTN = 27;
-constexpr uint8_t MANUAL_BTN = 14;
+constexpr uint8_t MODE_BTN = T7;
+constexpr uint8_t MANUAL_BTN = T6;
 constexpr adc1_channel_t VOLTAGE_SENS = ADC1_CHANNEL_6;
 constexpr uint8_t LORA_RST = 16;
 constexpr uint8_t LORA_D0 = 4;
@@ -36,7 +37,7 @@ constexpr uint32_t SENSOR_TIMEOUT_MS = 5000UL;
 constexpr uint32_t MAX_MOTOR_RUNTIME_MS = (10UL * 60UL * 1000UL);
 constexpr uint32_t FAULT_RECOVERY_TIME = 10000UL;
 
-
+constexpr uint16_t TOUCH_THRESHOLD = 500;
 // constexpr char const* ACCESS_POINT_SSID = "Wokwi-GUEST";
 // constexpr char const* ACCESS_POINT_PASSWORD = "";
 

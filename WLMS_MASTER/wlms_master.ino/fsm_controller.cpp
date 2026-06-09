@@ -5,13 +5,17 @@
 #include "system.h"
 
 inline void motor_on() {
-  GPIO.out_w1ts = (1 << MOTOR);
-  GPIO.out1_w1ts.val = (1 << (MOTOR_STATUS_LED - 32));
+  // GPIO.out_w1ts = (1 << MOTOR);
+  // GPIO.out1_w1ts.val = (1 << (MOTOR_STATUS_LED - 32));
+  digitalWrite(MOTOR, HIGH);
+  digitalWrite(MOTOR_STATUS_LED, HIGH);
 }
 
 inline void motor_off() {
-  GPIO.out_w1tc = (1 << MOTOR);
-  GPIO.out1_w1tc.val = (1 << (MOTOR_STATUS_LED - 32));
+  // GPIO.out_w1tc = (1 << MOTOR);
+  // GPIO.out1_w1tc.val = (1 << (MOTOR_STATUS_LED - 32));
+  digitalWrite(MOTOR, LOW);
+  digitalWrite(MOTOR_STATUS_LED, LOW);
 }
 
 inline void log_event(const char* msg) {
@@ -32,7 +36,6 @@ void control_task(void* pv) {
     // -------- LOCAL FLAGS --------
     bool logNeeded = false;
     const char* logMsg = "";
-    bool turnMotorOn = false;
 
     // -------- FSM LOGIC (NO MUTEX) --------
 
@@ -40,7 +43,6 @@ void control_task(void* pv) {
     bool sensorOK = sensorValid && (local.level >= 0 && local.level <= 100);
     // Sensor timeout
     if (!sensorOK) {
-      turnMotorOn = false;
       local.motor = false;
       local.state = STATE_FAULT;
       local.fault = true;
@@ -50,7 +52,6 @@ void control_task(void* pv) {
 
     // Motor runtime limit
     if (local.motor && (now - local.motorStartTime > MAX_MOTOR_RUNTIME_MS)) {
-      turnMotorOn = false;
       local.motor = false;
       local.state = STATE_FAULT;
       local.fault = true;
@@ -62,12 +63,10 @@ void control_task(void* pv) {
 
       case STATE_IDLE:
         local.motor = false;
-        turnMotorOn = false;
         local.state = STATE_WAIT_SENSOR;
         break;
 
       case STATE_WAIT_SENSOR:
-
         if (sensorValid && sensorOK) {
           local.state = STATE_WAIT_LOW;
         }
@@ -75,6 +74,10 @@ void control_task(void* pv) {
 
       case STATE_WAIT_LOW:
         if (local.mode == MODE_AUTO && local.level <= local.start_th) {
+          Serial.printf(
+            "WAIT_LOW -> STARTING  level=%d start_th=%d\n",
+            local.level,
+            local.start_th);
           local.state = STATE_STARTING;
           logNeeded = true;
           logMsg = "LOW LEVEL DETECTED";
@@ -82,9 +85,14 @@ void control_task(void* pv) {
         break;
 
       case STATE_STARTING:
+        Serial.printf(
+          "ENTER STARTING  motor=%d voltage=%d isDay=%d\n",
+          local.motor,
+          local.voltage,
+          local.isDay);
+
         if (local.voltage >= VOLTAGE_MIN && local.isDay) {
           if (!local.motor) {
-            turnMotorOn = true;
             local.motor = true;
             local.motorStartTime = now;
             local.lastDryCheckTime = now;
@@ -93,9 +101,7 @@ void control_task(void* pv) {
             logNeeded = true;
             logMsg = "MOTOR ON";
           }
-
           local.state = STATE_RUNNING;
-
         } else {
           local.state = STATE_BLOCKED;
           logNeeded = true;
@@ -106,7 +112,6 @@ void control_task(void* pv) {
       case STATE_RUNNING:
         // Normal stop conditions
         if (local.voltage <= VOLTAGE_FAIL) {
-          turnMotorOn = false;
           local.motor = false;
           local.state = STATE_BLOCKED;
           logNeeded = true;
@@ -115,7 +120,6 @@ void control_task(void* pv) {
         }
 
         if (local.level >= local.stop_th) {
-          turnMotorOn = false;
           local.motor = false;
           local.state = STATE_FULL;
           logNeeded = true;
@@ -130,8 +134,6 @@ void control_task(void* pv) {
           if (levelDiff < DRYRUN_MIN_INCREASE) {
             local.dryRunRetries++;
             local.dryRunLockUntil = now + 30000;
-
-            turnMotorOn = false;
             local.motor = false;
 
             if (local.dryRunRetries <= DRYRUN_MAX_RETRIES) {
@@ -164,19 +166,46 @@ void control_task(void* pv) {
         break;
 
       case STATE_FULL:
-        turnMotorOn = false;
         local.motor = false;
         local.state = STATE_WAIT_LOW;
         break;
 
       case STATE_MANUAL:
         if (local.voltage <= VOLTAGE_FAIL) {
-          turnMotorOn = false;
           local.motor = false;
           local.state = STATE_FAULT;
           logNeeded = true;
           logMsg = "FAULT: MANUAL VOLTAGE DROP";
         }
+        if (local.level >= local.stop_th) {
+          local.motor = false;
+          local.state = STATE_FULL;
+          logNeeded = true;
+          logMsg = "TANK FULL - MOTOR OFF";
+          break;
+        }
+        if (now - local.motorStartTime > 10000) {
+
+          if (now - local.lastDryCheckTime >= DRYRUN_CHECK_INTERVAL_MS) {
+
+            int levelDiff =
+              (int)local.level - (int)local.lastDryCheckLevel;
+
+            if (levelDiff < DRYRUN_MIN_INCREASE) {
+
+              local.motor = false;
+              local.state = STATE_FAULT;
+              local.fault = true;
+
+              logNeeded = true;
+              logMsg = "FAULT: DRY RUN";
+            }
+
+            local.lastDryCheckLevel = local.level;
+            local.lastDryCheckTime = now;
+          }
+        }
+
         break;
 
       case STATE_FAULT:
@@ -211,7 +240,7 @@ void control_task(void* pv) {
     xSemaphoreGive(sysMutex);
 
     // -------- STEP 4: HARDWARE CONTROL (NO MUTEX) --------
-    if (turnMotorOn) {
+    if (local.motor) {
       motor_on();
     } else {
       motor_off();

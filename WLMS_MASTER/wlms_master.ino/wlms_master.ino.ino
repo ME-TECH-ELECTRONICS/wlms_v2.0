@@ -3,6 +3,7 @@
 #include "system.h"
 #include "fsm_controller.h"
 #include "display.h"
+#include "buttons.h"
 // #include "web_dash.h"
 #include "voltage_sense.h"
 #include "lora_rx.h"
@@ -62,8 +63,6 @@ void monitorTask(void *pv) {
 void setup() {
   Serial.begin(115200);
   pinMode(MOTOR, OUTPUT);
-  pinMode(MODE_BTN, INPUT_PULLUP);
-  pinMode(MANUAL_BTN, INPUT_PULLUP);
   pinMode(MOTOR, OUTPUT);
   pinMode(MOTOR_STATUS_LED, OUTPUT);
   pinMode(MODE_LED_RED, OUTPUT);
@@ -72,7 +71,6 @@ void setup() {
   digitalWrite(MOTOR_STATUS_LED, LOW);
   digitalWrite(MODE_LED_RED, LOW);
   digitalWrite(MODE_LED_GREEN, HIGH);
-
   initDisplay();
   initADC();
   welcomeScreen();
@@ -82,7 +80,7 @@ void setup() {
   sys.state = STATE_IDLE;
   sys.start_th = MOTOR_START_THRESHOLD;
   sys.stop_th = MOTOR_STOP_THRESHOLD;
-  sys.level = 0;
+  sys.level = 255;
   sys.voltage = 230;
   sys.fault = false;
   sys.isDay = true;
@@ -132,7 +130,7 @@ void setup() {
   xTaskCreatePinnedToCore(readADC, "ADC Task", 2048, NULL, 3, NULL, 1);
   xTaskCreatePinnedToCore(readVoltageTask, "RMS Task", 2048, NULL, 2, NULL, 1);
   xTaskCreatePinnedToCore(displayTask, "Display", 3072, NULL, 1, NULL, 0);
-
+  xTaskCreatePinnedToCore(buttonTask, "Buttons", 2048, NULL, 3, NULL, 0);
   // -------- Core 0 (NETWORK) --------
   // xTaskCreatePinnedToCore(wifiTask, "WiFi", 4096, NULL, 2, NULL, 0);
   // xTaskCreatePinnedToCore(monitorTask, "Monitor", 2048, NULL, 1, NULL, 0);
