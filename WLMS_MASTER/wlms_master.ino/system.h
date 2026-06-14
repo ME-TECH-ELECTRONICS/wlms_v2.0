@@ -6,6 +6,7 @@
 #include <freertos/queue.h>
 
 #include "config.h"
+#include "settings.h"
 
 struct SystemState {
     uint8_t level;

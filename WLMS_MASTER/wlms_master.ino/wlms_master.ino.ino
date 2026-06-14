@@ -75,11 +75,15 @@ void setup() {
   initADC();
   welcomeScreen();
   delay(3000);
+  if(!loadSettings()) {
+    settings = factorySettings;
+    saveSettings();
+  }
   uint32_t now = millis();
   sys.mode = MODE_AUTO;
   sys.state = STATE_IDLE;
-  sys.start_th = MOTOR_START_THRESHOLD;
-  sys.stop_th = MOTOR_STOP_THRESHOLD;
+  sys.start_th = settings.motorStartThreshold;
+  sys.stop_th = settings.motorStopThreshold;
   sys.level = 255;
   sys.voltage = 230;
   sys.fault = false;
@@ -118,11 +122,6 @@ void setup() {
   i2cMutex = xSemaphoreCreateMutex();
   loraQueue = xQueueCreate(10, sizeof(SensorPacket));
 
-  if (loraQueue == NULL) {
-    Serial.println("Failed to create LoRa queue");
-    while (1)
-      ;
-  }
   // logQueue = xQueueCreate(10, sizeof(LogMsg));
   // -------- Core 1 (REAL-TIME) --------
   xTaskCreatePinnedToCore(control_task, "Control", 2048, NULL, 5, NULL, 1);

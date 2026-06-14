@@ -1,7 +1,13 @@
+#include "esp32-hal-gpio.h"
 #include "esp32-hal-touch-ng.h"
 #include "buttons.h"
 #include "config.h"
 #include "system.h"
+
+void toggleStatusLED(bool isManual = false) {
+  digitalWrite(MODE_LED_RED, isManual);
+  digitalWrite(MODE_LED_GREEN, !isManual);
+}
 
 void buttonTask(void *pv) {
   bool modeTouched = false;
@@ -10,19 +16,19 @@ void buttonTask(void *pv) {
   while (1) {
     bool modeNow = touchRead(T6) < TOUCH_THRESHOLD;
     bool manualNow = touchRead(T7) < TOUCH_THRESHOLD;
-    // Serial.print("mode=");
-    // Serial.print(touchRead(T6));
-    // Serial.print(" manual=");
-    // Serial.println(touchRead(T7));
     // MODE TOUCH
     if (modeNow && !modeTouched) {
       modeTouched = true;
       xSemaphoreTake(sysMutex, portMAX_DELAY);
       if (sys.mode == MODE_AUTO) {
         sys.mode = MODE_MANUAL;
+        sys.state = STATE_MANUAL;
+        toggleStatusLED(true);
         Serial.println("MODE -> MANUAL");
       } else {
         sys.mode = MODE_AUTO;
+        sys.state = STATE_WAIT_LOW;
+        toggleStatusLED();
         Serial.println("MODE -> AUTO");
       }
       xSemaphoreGive(sysMutex);
@@ -35,28 +41,28 @@ void buttonTask(void *pv) {
     if (manualNow && !manualTouched) {
       manualTouched = true;
       xSemaphoreTake(sysMutex, portMAX_DELAY);
-      if (sys.mode == MODE_MANUAL) {
-        if (!sys.motor) {
-          if (sys.voltage >= VOLTAGE_MIN) {
-            sys.motor = true;
-            sys.state = STATE_RUNNING;
-            sys.motorStartTime = millis();
-            sys.lastDryCheckTime = millis();
-            sys.lastDryCheckLevel = sys.level;
-            sys.dryRunRetries = 0;
-
-            Serial.println("MANUAL MOTOR ON");
-
-          } else {
-            Serial.println("LOW VOLTAGE - START BLOCKED");
-          }
+      if (!sys.motor) {
+        if (sys.voltage >= VOLTAGE_MIN) {
+          sys.motor = true;
+          sys.state = STATE_MANUAL;
+          sys.motorStartTime = millis();
+          sys.lastDryCheckTime = millis();
+          sys.lastDryCheckLevel = sys.level;
+          sys.dryRunRetries = 0;
+          Serial.println("MANUAL MOTOR ON");
         } else {
-          sys.motor = false;
-          sys.state = STATE_WAIT_LOW;
-
-          Serial.println("MANUAL MOTOR OFF");
+          Serial.println("LOW VOLTAGE - START BLOCKED");
         }
+      } else {
+        sys.motor = false;
+        if (sys.mode == MODE_AUTO) {
+          sys.state = STATE_WAIT_LOW;
+        } else {
+          sys.state = STATE_MANUAL;
+        }
+        Serial.println("MANUAL MOTOR OFF");
       }
+
       xSemaphoreGive(sysMutex);
     }
     if (!manualNow)

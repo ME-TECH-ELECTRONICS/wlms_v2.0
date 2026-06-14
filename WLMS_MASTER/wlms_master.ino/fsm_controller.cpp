@@ -1,19 +1,15 @@
-#include <soc/gpio_struct.h>
-
 #include "fsm_controller.h"
+
+#include <soc/gpio_struct.h>
 #include "config.h"
 #include "system.h"
 
 inline void motor_on() {
-  // GPIO.out_w1ts = (1 << MOTOR);
-  // GPIO.out1_w1ts.val = (1 << (MOTOR_STATUS_LED - 32));
   digitalWrite(MOTOR, HIGH);
   digitalWrite(MOTOR_STATUS_LED, HIGH);
 }
 
 inline void motor_off() {
-  // GPIO.out_w1tc = (1 << MOTOR);
-  // GPIO.out1_w1tc.val = (1 << (MOTOR_STATUS_LED - 32));
   digitalWrite(MOTOR, LOW);
   digitalWrite(MOTOR_STATUS_LED, LOW);
 }
@@ -29,8 +25,10 @@ void control_task(void* pv) {
 
     // -------- STEP 1: COPY SHARED STATE --------
     SystemState local;
+    Settings cfg;
     xSemaphoreTake(sysMutex, portMAX_DELAY);
     local = sys;
+    cfg = settings;
     xSemaphoreGive(sysMutex);
 
     // -------- LOCAL FLAGS --------
@@ -39,7 +37,7 @@ void control_task(void* pv) {
 
     // -------- FSM LOGIC (NO MUTEX) --------
 
-    bool sensorValid = (millis() - local.lastLevelUpdate) < SENSOR_TIMEOUT_MS;
+    bool sensorValid = (millis() - local.lastLevelUpdate) < cfg.sensorTimeoutMs;
     bool sensorOK = sensorValid && (local.level >= 0 && local.level <= 100);
     // Sensor timeout
     if (!sensorOK) {
@@ -51,7 +49,7 @@ void control_task(void* pv) {
     }
 
     // Motor runtime limit
-    if (local.motor && (now - local.motorStartTime > MAX_MOTOR_RUNTIME_MS)) {
+    if (local.motor && (now - local.motorStartTime > cfg.maxMotorRuntimeMs)) {
       local.motor = false;
       local.state = STATE_FAULT;
       local.fault = true;
@@ -91,7 +89,7 @@ void control_task(void* pv) {
           local.voltage,
           local.isDay);
 
-        if (local.voltage >= VOLTAGE_MIN && local.isDay) {
+        if (local.voltage >= cfg.voltageMin && local.isDay) {
           if (!local.motor) {
             local.motor = true;
             local.motorStartTime = now;
@@ -111,7 +109,7 @@ void control_task(void* pv) {
 
       case STATE_RUNNING:
         // Normal stop conditions
-        if (local.voltage <= VOLTAGE_FAIL) {
+        if (local.voltage <= cfg.voltageFail) {
           local.motor = false;
           local.state = STATE_BLOCKED;
           logNeeded = true;
@@ -127,16 +125,16 @@ void control_task(void* pv) {
           break;
         }
 
-        if (now - local.motorStartTime < 10000) break;
+        if (now - local.motorStartTime < cfg.dryRunStartupDelayMs) break;
         // Dry run detection
-        if (now - local.lastDryCheckTime >= DRYRUN_CHECK_INTERVAL_MS) {
+        if (now - local.lastDryCheckTime >= cfg.dryRunIntervalMs) {
           int levelDiff = (int)local.level - (int)local.lastDryCheckLevel;
-          if (levelDiff < DRYRUN_MIN_INCREASE) {
+          if (levelDiff < cfg.dryRunMinIncrease) {
             local.dryRunRetries++;
-            local.dryRunLockUntil = now + 30000;
+            local.dryRunLockUntil = now + cfg.dryRunLockMs;
             local.motor = false;
 
-            if (local.dryRunRetries <= DRYRUN_MAX_RETRIES) {
+            if (local.dryRunRetries <= cfg.dryRunMaxRetries) {
               local.state = STATE_BLOCKED;
               logMsg = "RETRY AFTER DRY RUN";
             } else {
@@ -155,8 +153,8 @@ void control_task(void* pv) {
 
       case STATE_BLOCKED:
         if (now < local.dryRunLockUntil) break;
-        if (now - local.lastRetryTime > 5000) {
-          if (local.voltage >= VOLTAGE_MIN && local.isDay) {
+        if (now - local.lastRetryTime > cfg.retryDelayMs) {
+          if (local.voltage >= cfg.voltageMin && local.isDay) {
             local.state = STATE_STARTING;
             local.lastRetryTime = now;
             logNeeded = true;
@@ -171,7 +169,7 @@ void control_task(void* pv) {
         break;
 
       case STATE_MANUAL:
-        if (local.voltage <= VOLTAGE_FAIL) {
+        if (local.voltage <= cfg.voltageFail) {
           local.motor = false;
           local.state = STATE_FAULT;
           logNeeded = true;
@@ -184,14 +182,14 @@ void control_task(void* pv) {
           logMsg = "TANK FULL - MOTOR OFF";
           break;
         }
-        if (now - local.motorStartTime > 10000) {
+        if (now - local.motorStartTime > cfg.dryRunStartupDelayMs) {
 
-          if (now - local.lastDryCheckTime >= DRYRUN_CHECK_INTERVAL_MS) {
+          if (now - local.lastDryCheckTime >= cfg.dryRunIntervalMs) {
 
             int levelDiff =
               (int)local.level - (int)local.lastDryCheckLevel;
 
-            if (levelDiff < DRYRUN_MIN_INCREASE) {
+            if (levelDiff < cfg.dryRunMinIncrease) {
 
               local.motor = false;
               local.state = STATE_FAULT;
@@ -212,8 +210,8 @@ void control_task(void* pv) {
         if (faultTime == 0) faultTime = now;
 
         // wait 10 seconds before retry
-        if ((now - faultTime) > FAULT_RECOVERY_TIME) {
-          if ((now - local.lastLevelUpdate) < SENSOR_TIMEOUT_MS && local.voltage >= VOLTAGE_MIN) {
+        if ((now - faultTime) > cfg.faultRecoveryTimeMs) {
+          if ((now - local.lastLevelUpdate) < cfg.sensorTimeoutMs && local.voltage >= cfg.voltageMin) {
             local.state = STATE_WAIT_LOW;
             local.fault = false;
             local.motor = false;
